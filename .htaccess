@@ -1,0 +1,15 @@
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Servir assets estáticos desde public/assets/
+    RewriteRule ^assets/(.*)$ public/assets/$1 [QSA,L]
+
+    # Permitir archivos y directorios estáticos reales
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # Todo lo demás pasa por el front controller en public/
+    RewriteRule ^ public/index.php [QSA,L]
+</IfModule>

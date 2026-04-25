@@ -1,0 +1,89 @@
+<div class="cabecera">
+  <h2>CAJA</h2>
+  <div class="cont-botones controls-caja">
+    <button type="button" id="btnaperturarcaja" onclick="abrirAperturarCaja()">
+      APERTURAR CAJA
+    </button>
+    <button
+      class="btndisabled"
+      id="btncerrarcaja"
+      type="button"
+      onclick="cerrarcaja()"
+    >
+      CERRAR CAJA
+    </button>
+  </div>
+  <div class="datos_caja">
+    <input type="hidden" name="idcajadiaria" id="idcajadiaria" />
+    <h4 id="fecha_inicio_caja">Fecha Inicio :</h4>
+  </div>
+</div>
+<div class="cont-caja">
+  <div class="contenido-caja cont_tablas_caja">
+    <div class="cont-tabla w70">
+      <h3>Últimos Ingresos</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th>Descripción</th>
+            <th>Total</th>
+            <th>Usuario</th>
+            <th>TIPO PAGO</th>
+          </tr>
+        </thead>
+        <tbody id="tbingresoscaja">
+          <!-- Ajax-->
+        </tbody>
+      </table>
+    </div>
+    <div class="cont-tabla w100 mgtop-15">
+      <div class="cont-subtittle">
+        <h3>Gastos</h3>
+        <button type="button" onclick="abrirRegistroGasto()">
+          Nuevo Gasto
+        </button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Hora</th>
+            <th>Descripción</th>
+            <th>Total</th>
+            <th>Usuario</th>
+          </tr>
+        </thead>
+        <tbody id="tbgastoscaja">
+          <tr>
+            <td class="ta-center">9:40</td>
+            <td class="ta-center">Examen</td>
+            <td class="ta-center">45.00</td>
+            <td class="ta-center">Junior</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="cont-tabla w30 cont-totales-caja cont_tablas_caja">
+    <h3>Montos Totales</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Descripción</th>
+          <th>Monto</th>
+        </tr>
+      </thead>
+      <tbody id="tbmontoscaja">
+        <!-- Ajax -->
+      </tbody>
+    </table>
+  </div>
+  <div class="cont_caja_cerrada">
+    <h1>CAJA CERRADA</h1>
+  </div>
+</div>
+<script>
+  verificarcaja()
+  listarultimosingresos()
+  listarultimosingresos()
+</script>

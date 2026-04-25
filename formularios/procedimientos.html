@@ -1,0 +1,84 @@
+<div class="cabecera">
+  <h2>Procedimientos</h2>
+  <div class="cont-busqueda">
+    <input
+      type="text"
+      name="FiltroProcedimiento"
+      id="FiltroProcedimiento"
+      placeholder="Buscar Procedimiento"
+    />
+
+    <button type="" class="btn-buscar" onclick="FiltrarProcedimiento()">
+      <i class="fas fa-search"></i>
+    </button>
+  </div>
+  <div class="cont-groupbotones">
+    <button
+      class="btn-secundario"
+      type="button"
+      onclick="abrirRegistroProcedimiento()"
+    >
+      Nuevo
+    </button>
+  </div>
+</div>
+<div class="cont-tabla">
+  <table>
+    <thead>
+      <tr>
+        <th>CODIGO</th>
+        <th>Nombre</th>
+        <th>Precio</th>
+        <th>Editar</th>
+        <th>Eliminar</th>
+        <!--<th>N. Atención</th>-->
+      </tr>
+    </thead>
+    <tbody id="tbProcedimientos">
+      <!-- AJAX -->
+    </tbody>
+    <tfoot></tfoot>
+  </table>
+</div>
+<script>
+  ListarProcedimientos()
+  $(function () {
+    $(document).on('click', '#tbProcedimientos .fa-trash-alt', function (
+      event,
+    ) {
+      event.preventDefault()
+      var parent = $(this).closest('table')
+      var tr = $(this).closest('tr')
+      codigo = $(tr).find('td').eq(0).html()
+      nombre = $(tr).find('td').eq(1).html()
+      //alert(codigo)
+      Swal.fire({
+        title: 'Desea Eliminar ' + nombre + '?',
+        text: 'No podrás revertir!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#9dc15b',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, eliminar',
+      }).then((result) => {
+        if (result.isConfirmed) {
+          $.ajax({
+            method: 'POST',
+            url: 'sistema/controlador/controlador.php',
+            data: {
+              accion: 'ELIMINAR_PROCEDIMIENTO',
+              idprocedimiento: codigo,
+            },
+          }).done(function (resultado) {
+            if (resultado === 'SE ELIMINÓ PROCEDIMIENTO') {
+              Swal.fire('Eliminado!', 'El registro fue eliminado.', 'success')
+              ListarProcedimientos()
+            } else {
+              Swal.fire('No fue posible eliminar registro', resultado, 'error')
+            }
+          })
+        }
+      })
+    })
+  })
+</script>
