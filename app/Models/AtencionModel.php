@@ -116,6 +116,45 @@ class AtencionModel extends BaseModel
         ]);
     }
 
+    public function registrar(array $data): PDOStatement
+    {
+        $sql = "INSERT INTO atencion
+                    (idpaciente, idtipoatencion, idmovimiento, idusuario,
+                     fechaatencion, motivoconsulta, antecedente, anamensis,
+                     exfisico, diagnostico, tratamiento, examen, estado)
+                VALUES
+                    (:idpaciente, :idtipoatencion, :idmovimiento, :idusuario,
+                     :fechaatencion, :motivoconsulta, :antecedente, :anamensis,
+                     :exfisico, :diagnostico, :tratamiento, :examen, :estado)";
+
+        return $this->db->query($sql, [
+            ':idpaciente'     => $data['idpaciente'],
+            ':idtipoatencion' => $data['idtipoatencion'],
+            ':idmovimiento'   => $data['idmovimiento'],
+            ':idusuario'      => $data['idusuario'],
+            ':fechaatencion'  => $data['fechaatencion'] ?? null,
+            ':motivoconsulta' => $data['motivoconsulta'] ?? '-',
+            ':antecedente'    => $data['antecedente'] ?? '-',
+            ':anamensis'      => $data['anamensis'] ?? '-',
+            ':exfisico'       => $data['exfisico'] ?? '-',
+            ':diagnostico'    => $data['diagnostico'] ?? '-',
+            ':tratamiento'    => $data['tratamiento'] ?? '-',
+            ':examen'         => $data['examen'] ?? '-',
+            ':estado'         => $data['estado'] ?? 'INICIADO',
+        ]);
+    }
+
+    public function findPorMovimiento(int $idmovimiento): ?array
+    {
+        $sql = "SELECT a.*, p.nombre, p.apellidos
+                FROM atencion a
+                INNER JOIN paciente p ON a.idpaciente = p.dni
+                WHERE a.idmovimiento = :idmovimiento
+                LIMIT 1";
+
+        return $this->fetch($this->db->query($sql, [':idmovimiento' => $idmovimiento]));
+    }
+
     public function cancelar(int $id): PDOStatement
     {
         $sql = "UPDATE atencion SET estado = 'CANCELADO' WHERE idatencion = :id";
@@ -165,25 +204,5 @@ class AtencionModel extends BaseModel
                 ORDER BY t.idtratamiento ASC";
 
         return $this->fetchAll($this->db->query($sql, [':id' => $idAtencion]));
-    }
-
-    public function agregarTratamiento(int $idAtencion, array $item): string
-    {
-        $sql = "INSERT INTO tratamiento (idatencion, idmedicina, indicaciones)
-                VALUES (:idatencion, :idmedicina, :indicaciones)";
-
-        $this->db->query($sql, [
-            ':idatencion' => $idAtencion,
-            ':idmedicina' => (int) ($item['idmedicina'] ?? 0),
-            ':indicaciones' => $item['indicaciones'] ?? '',
-        ]);
-
-        return $this->db->lastInsertId();
-    }
-
-    public function eliminarTratamientoItem(int $idTratamiento): PDOStatement
-    {
-        $sql = "DELETE FROM tratamiento WHERE idtratamiento = :id";
-        return $this->db->query($sql, [':id' => $idTratamiento]);
     }
 }

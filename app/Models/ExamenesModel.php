@@ -13,21 +13,22 @@ class ExamenesModel
         $this->db = Database::getInstance();
     }
 
-    public function ultimoId(): int
-    {
-        $row = $this->db->query(
-            'SELECT MAX(idexamen) AS idexamen FROM examenes'
-        )->fetch() ?: [];
-
-        return (int) ($row['idexamen'] ?? 0);
-    }
-
     public function listarPorPaciente(string $idpaciente): array
     {
         return $this->db->query(
             'SELECT * FROM examenes WHERE dni = :idpaciente ORDER BY fecha DESC',
             [':idpaciente' => $idpaciente]
         )->fetchAll() ?: [];
+    }
+
+    public function obtenerPorId(int $idexamen): ?array
+    {
+        $row = $this->db->query(
+            'SELECT * FROM examenes WHERE idexamen = :idexamen',
+            [':idexamen' => $idexamen]
+        )->fetch() ?: [];
+
+        return $row ?: null;
     }
 
     public function obtenerDetalle(int $idexamen): array
@@ -44,9 +45,9 @@ class ExamenesModel
             'INSERT INTO examenes(dni, nombre, fecha, tipoexamen)
              VALUES (:dni, :nombre, :fecha, :tipoexamen)',
             [
-                ':dni'        => $examen['dni'],
-                ':nombre'     => $examen['nombre'],
-                ':fecha'      => $examen['fecha'],
+                ':dni' => $examen['dni'],
+                ':nombre' => $examen['nombre'],
+                ':fecha' => $examen['fecha'],
                 ':tipoexamen' => $examen['tipoexamen'],
             ]
         );
@@ -68,7 +69,7 @@ class ExamenesModel
             'DELETE FROM detalle_examenes WHERE idexamen = :idexamen',
             [':idexamen' => $idexamen]
         );
-        return $stmt->rowCount() > 0;
+        return $stmt->rowCount() >= 0;
     }
 
     public function eliminar(int $idexamen): bool

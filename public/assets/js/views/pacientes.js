@@ -1,91 +1,175 @@
 /**
- * views/pacientes.js
- * Vista Pacientes: tabla con bÃƒÂºsqueda, CRUD, historial, imÃƒÂ¡genes y PDFs.
- * Toda interacciÃƒÂ³n vÃƒÂ­a event delegation. Sin HTML en el controller PHP.
+ * views/pacientes.js — Listado, CRUD, historial e imágenes/PDFs de pacientes.
+ *
+ * Mejoras UX/UI:
+ *  · Cabecera estándar con búsqueda debounced y contador.
+ *  · Skeleton de tabla durante la carga.
+ *  · Estado vacío informativo (sin resultados / sin pacientes registrados).
+ *  · Tabla con avatar de iniciales y acciones agrupadas.
+ *  · Form de paciente con feedback de RENIEC integrado.
+ *  · Historial estilo ficha clínica con secciones SOAP.
  */
 
-import { api }        from '../utils/api.js'
-import { toastOk, toastError } from '../utils/toast.js'
-import { icon, iconBtn } from '../utils/icons.js'
-import { openModal, closeModal } from '../components/modal.js'
-import { confirm }    from '../components/confirm.js'
-import { renderTable, wrapTable } from '../components/table.js'
+import { api }                       from '../utils/api.js'
+import { toastOk, toastError }       from '../utils/toast.js'
+import { icon, iconBtn }             from '../utils/icons.js'
+import { openModal, closeModal }     from '../components/modal.js'
+import { confirm }                   from '../components/confirm.js'
+import { renderTable, wrapTable }    from '../components/table.js'
+import { pageHeader }                from '../components/pageHeader.js'
+import { skeletonTable }             from '../components/skeleton.js'
 
-const content  = () => document.getElementById('app-content')
-const CARGO    = parseInt(document.querySelector('meta[name="user-cargo"]')?.content ?? '0')
+const content = () => document.getElementById('app-content')
+const CARGO   = parseInt(document.querySelector('meta[name="user-cargo"]')?.content ?? '0')
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Punto de entrada Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+let _searchTimer = null
+let _ultimaBusqueda = ''   // para mostrar el término en el empty state
+
+// ── Punto de entrada ──────────────────────────────────────────────────────────
 
 export async function PacientesView() {
   content().innerHTML = `
-    <div class="cabecera">
-      <h2>Pacientes</h2>
-      <div class="cont-busqueda">
-        <input type="text" id="q-paciente" placeholder="Buscar por nombre o DNIÃ¢â‚¬Â¦" autocomplete="off" />
-        <button class="icon-btn" id="btn-buscar-pac" type="button" aria-label="Buscar">${icon('search')}</button>
-      </div>
-      ${[1,4].includes(CARGO) ? `<button class="btn-secundario" id="btn-nuevo-pac" type="button">${icon('plus')} Nuevo Paciente</button>` : ''}
-    </div>
+    ${pageHeader({
+      title: 'Pacientes',
+      subtitle: '',                 // se llena después con el contador real
+      search: { id: 'q-paciente', placeholder: 'Buscar por nombre o DNI…' },
+      actions: [1,4].includes(CARGO)
+        ? `<button class="btn-primario" id="btn-nuevo-pac" type="button">${icon('plus')} Nuevo Paciente</button>`
+        : '',
+    })}
     <div id="tabla-pac-wrap"></div>`
 
   await cargarPacientes()
   bindEventos()
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Carga de datos Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ── Carga ─────────────────────────────────────────────────────────────────────
 
 async function cargarPacientes() {
   const wrap = document.getElementById('tabla-pac-wrap')
   if (!wrap) return
-  wrap.innerHTML = `<div class="state-loading"><div class="spinner"></div></div>`
+  wrap.innerHTML = skeletonTable(6, 7)
 
   try {
-    const q     = document.getElementById('q-paciente')?.value ?? ''
+    const q = document.getElementById('q-paciente')?.value.trim() ?? ''
+    _ultimaBusqueda = q
     const { data } = await api.get('/api/pacientes', q ? { q } : {})
-    wrap.innerHTML  = wrapTable(renderTable({
+
+    actualizarContador(data.length, q)
+
+    if (!data.length) {
+      wrap.innerHTML = renderVacio(q)
+      return
+    }
+
+    wrap.innerHTML = wrapTable(renderTable({
       columns: buildColumns(),
       rows:    data.map(p => ({ ...p, _id: p.dni })),
       emptyMsg: 'No se encontraron pacientes.',
-      rowClass: () => '',
     }))
   } catch (err) {
     wrap.innerHTML = `<div class="state-error">${err.message}</div>`
   }
 }
 
+function actualizarContador(total, q) {
+  const sub = document.querySelector('.gm-page-header__sub')
+  if (!sub) return
+  if (q) {
+    sub.textContent = total === 1
+      ? `1 resultado para "${q}"`
+      : `${total} resultados para "${q}"`
+  } else {
+    sub.textContent = total === 1 ? '1 paciente registrado' : `${total} pacientes registrados`
+  }
+}
+
+function renderVacio(q) {
+  if (q) {
+    return `
+      <div class="gm-empty">
+        <div class="gm-empty__icon">${icon('search')}</div>
+        <p class="gm-empty__text">
+          No encontramos pacientes con <b>"${escapeHtml(q)}"</b>.<br/>
+          Verifica el nombre o el DNI, o registra un paciente nuevo.
+        </p>
+      </div>`
+  }
+  return `
+    <div class="gm-empty">
+      <div class="gm-empty__icon">${icon('patient')}</div>
+      <p class="gm-empty__text">Aún no hay pacientes registrados. Crea el primero con el botón "Nuevo Paciente".</p>
+    </div>`
+}
+
+// ── Columnas ──────────────────────────────────────────────────────────────────
+
 function buildColumns() {
   const cols = [
-    { key: 'dni',       label: 'DNI',      align: 'center' },
-    { key: 'apellidos', label: 'Apellidos' },
-    { key: 'nombre',    label: 'Nombres' },
-    { key: 'edad',      label: 'Edad',     align: 'center', render: r => `${r.edad} aÃƒÂ±os` },
-    { key: 'telefono',  label: 'TelÃƒÂ©fono', align: 'center' },
+    {
+      label: 'Paciente',
+      render: r => `
+        <div class="pac-cell">
+          <div class="gm-avatar">${iniciales(r.nombre, r.apellidos)}</div>
+          <div class="pac-cell__info">
+            <span class="pac-cell__name">${escapeHtml(r.apellidos)}, ${escapeHtml(r.nombre)}</span>
+            <span class="pac-cell__meta">DNI ${escapeHtml(r.dni)} · ${r.edad} años</span>
+          </div>
+        </div>`,
+    },
+    {
+      key: 'telefono',
+      label: 'Teléfono',
+      align: 'center',
+      render: r => r.telefono
+        ? `<a href="tel:${r.telefono}" class="link-tel">${r.telefono}</a>`
+        : '<span class="muted">—</span>',
+    },
+    {
+      label: 'Acciones',
+      align: 'right',
+      render: r => `
+        <div class="pac-actions">
+          ${[1,2,4].includes(CARGO) ? iconBtn('history','historial','Ver historial','icon-info') : ''}
+          ${iconBtn('image','imagenes','Ver imágenes','icon-ocre')}
+          ${iconBtn('pdf','pdfs','Ver PDFs','icon-ocre')}
+          ${[1,4].includes(CARGO) ? iconBtn('edit','editar','Editar','icon-edit') : ''}
+          ${[1,4].includes(CARGO) ? iconBtn('trash','eliminar','Eliminar','icon-danger') : ''}
+        </div>`,
+    },
   ]
-  if ([1,4].includes(CARGO)) {
-    cols.push({ label: 'Editar',   align: 'center', render: r => iconBtn('edit',  'editar',   'Editar',   'icon-edit') })
-    cols.push({ label: 'Eliminar', align: 'center', render: r => iconBtn('trash', 'eliminar', 'Eliminar', 'icon-danger') })
-  }
-  if ([1,2,4].includes(CARGO)) {
-    cols.push({ label: 'Historial', align: 'center', render: r => iconBtn('history', 'historial', 'Ver historial', 'icon-info') })
-  }
-  cols.push({ label: 'ImÃƒÂ¡genes', align: 'center', render: r => iconBtn('image', 'imagenes', 'Ver imÃƒÂ¡genes', 'icon-ocre') })
-  cols.push({ label: 'PDFs',     align: 'center', render: r => iconBtn('pdf',   'pdfs',     'Ver PDFs',      'icon-ocre') })
   return cols
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Eventos (delegaciÃƒÂ³n) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+function iniciales(nombre = '', apellidos = '') {
+  const n = (nombre || '').trim().split(/\s+/)[0]?.[0] ?? ''
+  const a = (apellidos || '').trim().split(/\s+/)[0]?.[0] ?? ''
+  return (n + a).toUpperCase() || '·'
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]))
+}
+
+// ── Eventos ───────────────────────────────────────────────────────────────────
 
 function bindEventos() {
   const el = content()
 
-  // BÃƒÂºsqueda
-  el.querySelector('#btn-buscar-pac')?.addEventListener('click', cargarPacientes)
-  el.querySelector('#q-paciente')?.addEventListener('keydown', e => { if (e.key === 'Enter') cargarPacientes() })
+  // Búsqueda con debounce — sin botón explícito
+  const inputBuscar = el.querySelector('#q-paciente')
+  inputBuscar?.addEventListener('input', () => {
+    clearTimeout(_searchTimer)
+    _searchTimer = setTimeout(cargarPacientes, 350)
+  })
+  inputBuscar?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { clearTimeout(_searchTimer); cargarPacientes() }
+  })
 
-  // Nuevo paciente
   el.querySelector('#btn-nuevo-pac')?.addEventListener('click', () => abrirFormPaciente(null))
 
-  // Acciones en tabla (delegaciÃƒÂ³n por data-action)
   el.addEventListener('click', async (e) => {
     if (!e.target.closest('#tabla-pac-wrap')) return
     const btn = e.target.closest('[data-action]')
@@ -102,131 +186,151 @@ function bindEventos() {
         case 'imagenes':  await abrirSubirImagenes(dni); break
         case 'pdfs':      await abrirSubirPdf(dni); break
       }
-    } catch (err) {
-      toastError(err.message ?? 'Error inesperado.')
-    }
+    } catch (err) { toastError(err.message) }
   })
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Acciones CRUD Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ── CRUD ──────────────────────────────────────────────────────────────────────
 
 async function editarPaciente(dni) {
   try {
     const { data } = await api.get(`/api/pacientes/${dni}`)
     abrirFormPaciente(data)
-  } catch (err) {
-    toastError(err.message)
-  }
+  } catch (err) { toastError(err.message) }
 }
 
 async function eliminarPaciente(dni, tr) {
   const ok = await confirm({
-    title:        'Eliminar paciente',
-    text:         'Esta acciÃƒÂ³n no se puede revertir.',
-    confirmLabel: 'SÃƒÂ­, eliminar',
-    danger:       true,
+    title: 'Eliminar paciente',
+    text:  '¿Está seguro? Se eliminará el paciente y todo su historial. Esta acción no se puede revertir.',
+    confirmLabel: 'Sí, eliminar',
+    danger: true,
   })
   if (!ok) return
-
   try {
     await api.delete(`/api/pacientes/${dni}`)
-    tr.remove()
     toastOk('Paciente eliminado.')
-  } catch (err) {
-    toastError(err.message)
-  }
+    tr.remove()
+  } catch (err) { toastError(err.message) }
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ BÃƒÂºsqueda de DNI (BD local Ã¢â€ â€™ API externa) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ── Formulario ────────────────────────────────────────────────────────────────
 
 async function buscarDniPaciente(dni) {
   if (dni.length !== 8) return
+  const card = document.getElementById('form-pac-card')
+  card?.classList.add('form-busy')
 
-  // 1. Buscar en base de datos local
   try {
-    const res  = await api.get(`/api/pacientes/${dni}`)
-    const data = res.data ?? {}
-    if (data.nombre) {
-      document.querySelector('[name="nombre"]').value    = data.nombre    ?? ''
-      document.querySelector('[name="apellidos"]').value = data.apellidos ?? ''
-      document.querySelector('[name="telefono"]').value  = data.telefono  ?? ''
-      document.querySelector('[name="fecha_nac"]').value = data.fecha_nac ?? ''
-      toastOk('Paciente encontrado en base de datos.')
-      return
-    }
-  } catch { /* 404 Ã¢â€ â€™ continuar con API externa */ }
+    // 1. BD local
+    try {
+      const res  = await api.get(`/api/pacientes/${dni}`)
+      const data = res.data ?? {}
+      if (data.nombre) {
+        document.querySelector('[name="nombre"]').value    = data.nombre    ?? ''
+        document.querySelector('[name="apellidos"]').value = data.apellidos ?? ''
+        document.querySelector('[name="telefono"]').value  = data.telefono  ?? ''
+        document.querySelector('[name="fecha_nac"]').value = data.fecha_nac ?? ''
+        actualizarAvatarForm()
+        toastOk('Paciente encontrado en base de datos.')
+        return
+      }
+    } catch { /* 404 → seguir */ }
 
-  // 2. Consultar RENIEC vÃƒÂ­a API externa
-  try {
-    const res = await api.get(`/api/personal/consulta-dni/${dni}`)
-    const d   = res.data ?? {}
-    if (d.nombres) {
-      document.querySelector('[name="nombre"]').value    = d.nombres ?? ''
-      document.querySelector('[name="apellidos"]').value = `${d.apellido_paterno ?? ''} ${d.apellido_materno ?? ''}`.trim()
-      toastOk('Datos obtenidos de RENIEC.')
-    }
-  } catch { /* DNI no encontrado en ninguna fuente */ }
+    // 2. RENIEC
+    try {
+      const res = await api.get(`/api/personal/consulta-dni/${dni}`)
+      const d   = res.data ?? {}
+      if (d.nombres) {
+        document.querySelector('[name="nombre"]').value    = d.nombres ?? ''
+        document.querySelector('[name="apellidos"]').value = `${d.apellido_paterno ?? ''} ${d.apellido_materno ?? ''}`.trim()
+        actualizarAvatarForm()
+        toastOk('Datos obtenidos de RENIEC.')
+      }
+    } catch { /* no encontrado */ }
+  } finally {
+    card?.classList.remove('form-busy')
+  }
 }
-
-// Ã¢â€â‚¬Ã¢â€â‚¬ Formulario Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
 function abrirFormPaciente(pac) {
   const isEdit = pac !== null
   const html = `
-    <h2 class="modal-title">${isEdit ? 'Editar Paciente' : 'Nuevo Paciente'}</h2>
-    <form id="form-paciente" novalidate>
-      <div class="cont-group">
-        <div class="cont-control">
-          <label>DNI / Doc.</label>
-          ${isEdit
-            ? `<input type="text" name="dni" value="${pac?.dni ?? ''}" readonly maxlength="8" required />`
-            : `<div class="cont-busqueda">
-                 <input type="text" name="dni" value="" maxlength="8" required autocomplete="off" placeholder="Ingrese DNI" />
-                 <button type="button" id="btn-buscar-dni" title="Buscar DNI">${icon('search')}</button>
-               </div>`
-          }
-        </div>
-        <div class="cont-control">
-          <label>Fecha de nacimiento</label>
-          <input type="date" name="fecha_nac" value="${pac?.fecha_nac ?? ''}" required />
-        </div>
-        <div class="cont-control">
-          <label>Nombres</label>
-          <input type="text" name="nombre" value="${pac?.nombre ?? ''}" required />
-        </div>
-        <div class="cont-control">
-          <label>Apellidos</label>
-          <input type="text" name="apellidos" value="${pac?.apellidos ?? ''}" required />
-        </div>
-        <div class="cont-control">
-          <label>TelÃƒÂ©fono</label>
-          <input type="text" name="telefono" value="${pac?.telefono ?? ''}" />
+    <div id="form-pac-card" class="form-pac">
+      <div class="form-pac__avatar-wrap">
+        <div class="gm-avatar gm-avatar--lg" id="form-pac-avatar">${isEdit ? iniciales(pac.nombre, pac.apellidos) : '·'}</div>
+        <div>
+          <h2 class="modal-title" style="border:none;margin:0;padding:0;">${isEdit ? 'Editar paciente' : 'Nuevo paciente'}</h2>
+          <p class="muted" style="font-size:.82rem;margin-top:2px;">${isEdit ? `DNI ${pac.dni}` : 'Complete los datos del paciente'}</p>
         </div>
       </div>
-      <div style="display:flex;gap:8px;margin-top:12px;">
-        <button type="submit" class="btn-primario" id="btn-guardar-pac">${isEdit ? 'Actualizar' : 'Registrar'}</button>
-        <button type="button" class="btn-secundario btn-cancelar" id="btn-cancel-pac">Cancelar</button>
+
+      <form id="form-paciente" novalidate>
+        <div class="cont-group">
+          <div class="cont-control">
+            <label>DNI / Documento</label>
+            ${isEdit
+              ? `<input type="text" name="dni" value="${pac?.dni ?? ''}" readonly maxlength="8" required />`
+              : `<div class="input-with-action">
+                   <input type="text" name="dni" value="" maxlength="8" required autocomplete="off" placeholder="8 dígitos" />
+                   <button type="button" id="btn-buscar-dni" class="btn-action" title="Consultar RENIEC">${icon('search')}</button>
+                 </div>
+                 <span class="form-hint">Consultaremos automáticamente RENIEC al buscar.</span>`
+            }
+          </div>
+          <div class="cont-control">
+            <label>Fecha de nacimiento</label>
+            <input type="date" name="fecha_nac" value="${pac?.fecha_nac ?? ''}" required />
+          </div>
+          <div class="cont-control">
+            <label>Nombres</label>
+            <input type="text" name="nombre" value="${pac?.nombre ?? ''}" required />
+          </div>
+          <div class="cont-control">
+            <label>Apellidos</label>
+            <input type="text" name="apellidos" value="${pac?.apellidos ?? ''}" required />
+          </div>
+          <div class="cont-control">
+            <label>Teléfono</label>
+            <input type="text" name="telefono" value="${pac?.telefono ?? ''}" placeholder="9 dígitos" />
+          </div>
+        </div>
+
+        <div class="form-pac__actions">
+          <button type="button" class="btn-secundario btn-cancelar" id="btn-cancel-pac">Cancelar</button>
+          <button type="submit" class="btn-primario" id="btn-guardar-pac">${isEdit ? 'Actualizar paciente' : 'Registrar paciente'}</button>
+        </div>
+      </form>
+
+      <div class="form-busy-overlay">
+        <div class="spinner"></div>
+        <p>Consultando RENIEC...</p>
       </div>
-    </form>`
+    </div>`
 
   openModal(html)
 
-  if (!isEdit) {
-    const inputDni = document.querySelector('[name="dni"]')
-    const btnBuscar = document.getElementById('btn-buscar-dni')
+  // Avatar dinámico al escribir nombre/apellidos
+  ;['nombre','apellidos'].forEach(name => {
+    document.querySelector(`[name="${name}"]`)?.addEventListener('input', actualizarAvatarForm)
+  })
 
-    const ejecutarBusqueda = () => buscarDniPaciente(inputDni.value.trim())
-    btnBuscar.addEventListener('click', ejecutarBusqueda)
-    inputDni.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ejecutarBusqueda() } })
+  if (!isEdit) {
+    const inputDni  = document.querySelector('[name="dni"]')
+    const btnBuscar = document.getElementById('btn-buscar-dni')
+    const ejecutar  = () => buscarDniPaciente(inputDni.value.trim())
+    btnBuscar.addEventListener('click', ejecutar)
+    inputDni.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); ejecutar() } })
+    inputDni.addEventListener('blur', ejecutar)   // también busca al perder foco
   }
 
   document.getElementById('btn-cancel-pac').addEventListener('click', closeModal)
 
   document.getElementById('form-paciente').addEventListener('submit', async (e) => {
     e.preventDefault()
-    const fd   = new FormData(e.target)
-    const body = Object.fromEntries(fd.entries())
-
+    const btn  = document.getElementById('btn-guardar-pac')
+    btn.disabled = true
+    const body = Object.fromEntries(new FormData(e.target).entries())
     try {
       if (isEdit) {
         await api.put(`/api/pacientes/${pac.dni}`, body)
@@ -239,14 +343,23 @@ function abrirFormPaciente(pac) {
       cargarPacientes()
     } catch (err) {
       toastError(err.message)
+      btn.disabled = false
     }
   })
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ Historial Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+function actualizarAvatarForm() {
+  const nom = document.querySelector('[name="nombre"]')?.value ?? ''
+  const ape = document.querySelector('[name="apellidos"]')?.value ?? ''
+  const av  = document.getElementById('form-pac-avatar')
+  if (av) av.textContent = iniciales(nom, ape)
+}
+
+// ── Historial ─────────────────────────────────────────────────────────────────
 
 async function abrirHistorial(dni) {
   openModal(`<div class="state-loading"><div class="spinner"></div></div>`, { wide: true })
+
   try {
     const [{ data: paciente }, { data: atenciones }, { data: examenes }] = await Promise.all([
       api.get(`/api/pacientes/${dni}`),
@@ -254,31 +367,74 @@ async function abrirHistorial(dni) {
       api.get('/api/examenes', { dni }),
     ])
 
-    const liAtenciones = atenciones.map(a =>
-      `<li><button class="link-btn" data-type="${a.tipo}" data-id="${a.idatencion}">${a.fecha} Ã¢â‚¬â€ ${a.nombre}</button></li>`
-    ).join('') || '<li class="muted">Sin atenciones registradas.</li>'
+    const liAtenciones = atenciones.length
+      ? atenciones.map(a => `
+          <li>
+            <button class="hist-item" data-type="${a.tipo}" data-id="${a.idatencion}">
+              <span class="hist-item__date">${a.fecha}</span>
+              <span class="hist-item__title">${escapeHtml(a.nombre)}</span>
+            </button>
+          </li>`).join('')
+      : '<li class="hist-empty">Sin atenciones registradas.</li>'
 
-    const liExamenes = examenes.map(ex =>
-      `<li><button class="link-btn" data-type="${ex.tipo.toLowerCase()}" data-id="${ex.idexamen}">${ex.fecha} Ã¢â‚¬â€ ${ex.nombre} (${ex.tipo})</button></li>`
-    ).join('') || '<li class="muted">Sin exÃƒÂ¡menes registrados.</li>'
+    const liExamenes = examenes.length
+      ? examenes.map(ex => `
+          <li>
+            <button class="hist-item" data-type="${ex.tipo.toLowerCase()}" data-id="${ex.idexamen}">
+              <span class="hist-item__date">${ex.fecha}</span>
+              <span class="hist-item__title">${escapeHtml(ex.nombre)} <span class="badge badge-gris" style="margin-left:6px;">${ex.tipo}</span></span>
+            </button>
+          </li>`).join('')
+      : '<li class="hist-empty">Sin exámenes registrados.</li>'
 
     const html = `
-      <h2 class="modal-title">${paciente.apellidos}, ${paciente.nombre}</h2>
-      <p class="modal-subtitle">DNI: ${paciente.dni} Ã‚Â· Nac.: ${paciente.fecha_nac}</p>
+      <div class="hist-head">
+        <div class="gm-avatar gm-avatar--lg">${iniciales(paciente.nombre, paciente.apellidos)}</div>
+        <div>
+          <h2 class="hist-head__name">${escapeHtml(paciente.apellidos)}, ${escapeHtml(paciente.nombre)}</h2>
+          <p class="hist-head__meta">DNI ${escapeHtml(paciente.dni)} · ${paciente.edad ?? '—'} años · Nac. ${paciente.fecha_nac ?? '—'}</p>
+        </div>
+      </div>
+
       <div class="historial-layout">
         <aside class="historial-aside">
-          <h4>Consultas</h4><ul class="historial-list">${liAtenciones}</ul>
-          <h4 style="margin-top:14px">ExÃƒÂ¡menes</h4><ul class="historial-list">${liExamenes}</ul>
+          <h4>Consultas</h4>
+          <ul class="hist-list">${liAtenciones}</ul>
+          <h4 style="margin-top:18px">Exámenes</h4>
+          <ul class="hist-list">${liExamenes}</ul>
         </aside>
         <div class="historial-panel" id="historial-panel">
-          <p class="muted ta-center" style="padding:40px 0">Selecciona un registro de la lista.</p>
+          <div class="gm-empty">
+            <div class="gm-empty__icon">${icon('history')}</div>
+            <p class="gm-empty__text">Selecciona un registro de la lista para ver su detalle.</p>
+          </div>
         </div>
       </div>`
 
     openModal(html, { wide: true })
 
-    // DelegaciÃƒÂ³n en el modal
     document.getElementById('modal-content').addEventListener('click', async (e) => {
+      // Eliminar examen
+      const delBtn = e.target.closest('[data-action="del-examen"]')
+      if (delBtn) {
+        const idExamen = parseInt(delBtn.dataset.id ?? '0')
+        if (!idExamen) return
+        const ok = await confirm({
+          title: 'Eliminar examen',
+          text: 'Esta acción no se puede revertir.',
+          confirmLabel: 'Sí, eliminar',
+          danger: true,
+        })
+        if (!ok) return
+        try {
+          await api.delete(`/api/examenes/${idExamen}`)
+          toastOk('Examen eliminado.')
+          await abrirHistorial(dni)
+        } catch (err) { toastError(err.message) }
+        return
+      }
+
+      // Cargar detalle
       const btn = e.target.closest('[data-type]')
       if (!btn) return
       const panel = document.getElementById('historial-panel')
@@ -287,54 +443,76 @@ async function abrirHistorial(dni) {
       try {
         if (btn.dataset.type === 'consulta') {
           const { data: a } = await api.get(`/api/atenciones/${btn.dataset.id}`)
-          panel.innerHTML = renderPanelConsulta(a)
-        } else if (btn.dataset.type === 'examen') {
-          const { data } = await api.get(`/api/atenciones/${btn.dataset.id}/examen`)
-          panel.innerHTML = `<iframe src="${data?.examen ?? ''}" width="100%" style="height:60vh;border:none;"></iframe>`
+          panel.innerHTML = renderConsultaSOAP(a)
         } else if (btn.dataset.type === 'img') {
           const { data } = await api.get(`/api/examenes/${btn.dataset.id}/imagenes`)
-          panel.innerHTML = data.map(d => `<div class="imagen"><img src="${d.archivo}" alt="" /></div>`).join('')
+          panel.innerHTML = data.length
+            ? `<div class="examen-imgs-grid">${data.map(d => `<div class="examen-img"><img src="${d.archivo}" alt="" loading="lazy" /></div>`).join('')}</div>`
+            : '<p class="muted">No hay imágenes asociadas.</p>'
         } else if (btn.dataset.type === 'pdf') {
           const { data } = await api.get(`/api/examenes/${btn.dataset.id}`)
           panel.innerHTML = `
-            <div class="cont-opciones-examenes">
-              <button class="btndel" data-action="del-examen" data-id="${btn.dataset.id}" type="button">Eliminar examen</button>
+            <div class="examen-pdf-actions">
+              <button class="btn-peligro" data-action="del-examen" data-id="${btn.dataset.id}" type="button">Eliminar examen</button>
             </div>
-            <iframe src="${data[0]?.archivo ?? ''}" width="100%" style="height:60vh;border:none;"></iframe>`
+            <iframe src="${data[0]?.archivo ?? ''}" class="examen-pdf-frame"></iframe>`
         }
       } catch (err) {
-        panel.innerHTML = `<p class="state-error">${err.message}</p>`
+        panel.innerHTML = `<div class="state-error">${err.message}</div>`
       }
     })
-
   } catch (err) {
-    openModal(`<p class="state-error">${err.message}</p>`)
+    openModal(`<div class="state-error">${err.message}</div>`)
   }
 }
 
-function renderPanelConsulta(a) {
-  const fila = (label, val) => val ? `<tr><td class="label-cell">${label}</td><td>${val}</td></tr>` : ''
+function renderConsultaSOAP(a) {
+  // Tarjetas de signos vitales
+  const signos = [
+    { label: 'FC',   value: a.fr,   unit: 'lpm' },
+    { label: 'PA',   value: a.pa,   unit: 'mmHg' },
+    { label: 'T°',   value: a.temp, unit: '°C' },
+    { label: 'SO₂',  value: a.so2,  unit: '%' },
+    { label: 'Peso', value: a.peso, unit: 'kg' },
+  ].filter(s => s.value && s.value !== '-')
+
+  const signosHtml = signos.length
+    ? `<div class="signos-grid">
+         ${signos.map(s => `
+           <div class="signo-card">
+             <div class="signo-card__label">${s.label}</div>
+             <div class="signo-card__value">${escapeHtml(s.value)}<span class="signo-card__unit">${s.unit}</span></div>
+           </div>`).join('')}
+       </div>`
+    : ''
+
+  const seccion = (titulo, contenido) =>
+    contenido && contenido !== '-' && contenido.trim()
+      ? `<section class="soap-section">
+           <h4>${titulo}</h4>
+           <p>${escapeHtml(contenido).replace(/\n/g, '<br/>')}</p>
+         </section>`
+      : ''
+
   return `
-    <table class="gm-table detail-table">
-      <tbody>
-        ${fila('Fecha', a.fechaatencion)}
-        ${fila('FC', a.fr)} ${fila('PA', a.pa)} ${fila('TÃ‚Â°', a.temp)} ${fila('So2', a.so2)} ${fila('Peso', a.peso)}
-        ${fila('Antecedente', a.antecedente)}
-        ${fila('Molestia', a.motivoconsulta)}
-        ${fila('Anamnesis', a.anamensis)}
-        ${fila('Examen fÃƒÂ­sico', a.exfisico)}
-        ${fila('DiagnÃƒÂ³stico', a.diagnostico)}
-        ${fila('Tratamiento', a.tratamiento)}
-      </tbody>
-    </table>
-    <div style="margin-top:10px;">
-      <a href="/pdf/receta/${a.idatencion}" target="_blank" class="btn-secundario">
-        ${icon('pdf')} Ver PDF
-      </a>
+    <div class="consulta-detalle">
+      <header class="consulta-detalle__head">
+        <span class="consulta-detalle__date">${a.fechaatencion ?? ''}</span>
+        <a href="/pdf/receta/${a.idatencion}" target="_blank" class="btn-secundario btn-sm">${icon('pdf')} Ver receta</a>
+      </header>
+
+      ${signosHtml}
+
+      ${seccion('Antecedente',        a.antecedente)}
+      ${seccion('Motivo de consulta', a.motivoconsulta)}
+      ${seccion('Anamnesis',          a.anamensis)}
+      ${seccion('Examen físico',      a.exfisico)}
+      ${seccion('Diagnóstico',        a.diagnostico)}
+      ${seccion('Tratamiento',        a.tratamiento)}
     </div>`
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ ImÃƒÂ¡genes Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ── Imágenes ──────────────────────────────────────────────────────────────────
 
 async function abrirSubirImagenes(dni) {
   const slots = Array.from({ length: 6 }, (_, i) => `
@@ -345,15 +523,15 @@ async function abrirSubirImagenes(dni) {
     </label>`).join('')
 
   const html = `
-    <h2 class="modal-title">Cargar ImÃƒÂ¡genes</h2>
+    <h2 class="modal-title">Cargar Imágenes</h2>
     <form id="form-imgs" novalidate>
       <div class="cont-control" style="margin-bottom:14px;">
         <label>Nombre del examen</label>
-        <input type="text" name="nombreexamen" required placeholder="Ej: RadiografÃƒÂ­a de tÃƒÂ³rax" autocomplete="off" />
+        <input type="text" name="nombreexamen" required placeholder="Ej: Radiografía de tórax" autocomplete="off" />
       </div>
       <div class="img-slots-grid">${slots}</div>
       <div style="display:flex;gap:8px;margin-top:16px;">
-        <button type="submit" class="btn-primario">Subir imÃƒÂ¡genes</button>
+        <button type="submit" class="btn-primario">Subir imágenes</button>
         <button type="button" class="btn-secundario" id="btn-cancel-imgs">Cancelar</button>
       </div>
     </form>`
@@ -370,7 +548,7 @@ async function abrirSubirImagenes(dni) {
       const label   = slot.querySelector('.img-slot-label')
       const reader  = new FileReader()
       reader.onloadend = () => {
-        preview.src          = reader.result
+        preview.src           = reader.result
         preview.style.display = 'block'
         label.style.display   = 'none'
         slot.classList.add('img-slot--filled')
@@ -414,7 +592,7 @@ async function abrirSubirImagenes(dni) {
   })
 }
 
-// Ã¢â€â‚¬Ã¢â€â‚¬ PDFs Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+// ── PDFs ──────────────────────────────────────────────────────────────────────
 
 async function abrirSubirPdf(dni) {
   const html = `
@@ -480,13 +658,4 @@ async function abrirSubirPdf(dni) {
       toastError(err.message)
     }
   })
-}
-
-// Ã¢â€â‚¬Ã¢â€â‚¬ Helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
-
-function abrirVentana(url) {
-  const w = 1000, h = 800
-  const x = Math.round(screen.width  / 2 - w / 2)
-  const y = Math.round(screen.height / 2 - h / 2)
-  window.open(url, '_blank', `left=${x},top=${y},width=${w},height=${h},scrollbars=yes,location=no,resizable=yes,menubar=no`)
 }

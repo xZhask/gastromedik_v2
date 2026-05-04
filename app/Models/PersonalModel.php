@@ -15,7 +15,27 @@ class PersonalModel
 
     public function listarCargos(): array
     {
-        return $this->db->query('SELECT * FROM cargo')->fetchAll() ?: [];
+        return $this->db->query('SELECT idcargo, nombre FROM cargo ORDER BY nombre ASC')->fetchAll() ?: [];
+    }
+
+    public function findCargoById(int $idcargo): ?array
+    {
+        $row = $this->db->query(
+            'SELECT idcargo, nombre FROM cargo WHERE idcargo = :idcargo',
+            [':idcargo' => $idcargo]
+        )->fetch() ?: [];
+
+        return $row ?: null;
+    }
+
+    public function findCargoByNombre(string $nombre): ?array
+    {
+        $row = $this->db->query(
+            'SELECT idcargo, nombre FROM cargo WHERE UPPER(nombre) = UPPER(:nombre) LIMIT 1',
+            [':nombre' => $nombre]
+        )->fetch() ?: [];
+
+        return $row ?: null;
     }
 
     public function registrarCargo(string $nombre): bool
@@ -31,22 +51,22 @@ class PersonalModel
     {
         return $this->db->query(
             'SELECT u.dni,
-                    concat_ws(", ", u.apellidos, u.nombre) AS nombre,
+                    u.nombre,
+                    u.apellidos,
                     u.nick,
                     c.idcargo,
                     c.nombre AS cargo,
                     u.estado
                FROM usuario u
-               INNER JOIN cargo c ON c.idcargo = u.idcargo'
+               INNER JOIN cargo c ON c.idcargo = u.idcargo
+              ORDER BY u.apellidos ASC, u.nombre ASC'
         )->fetchAll() ?: [];
     }
 
-    /** Obtiene datos completos de un usuario por DNI. Devuelve null si no existe. */
     public function findByDni(string $dni): ?array
     {
         $row = $this->db->query(
             'SELECT u.dni,
-                    concat_ws(", ", u.apellidos, u.nombre) AS nombre_completo,
                     u.nombre,
                     u.apellidos,
                     u.nick,
@@ -57,6 +77,16 @@ class PersonalModel
                INNER JOIN cargo c ON c.idcargo = u.idcargo
               WHERE u.dni = :dni',
             [':dni' => $dni]
+        )->fetch() ?: [];
+
+        return $row ?: null;
+    }
+
+    public function findByNick(string $nick): ?array
+    {
+        $row = $this->db->query(
+            'SELECT dni, nick FROM usuario WHERE UPPER(nick) = UPPER(:nick) LIMIT 1',
+            [':nick' => $nick]
         )->fetch() ?: [];
 
         return $row ?: null;
@@ -102,10 +132,6 @@ class PersonalModel
         return $stmt->rowCount() > 0;
     }
 
-    /**
-     * Actualiza el hash de contraseña de un usuario.
-     * Recibe la contraseña ya hasheada con password_hash().
-     */
     public function actualizarPassword(string $dni, string $hashPass): bool
     {
         $stmt = $this->db->query(

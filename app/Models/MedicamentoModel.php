@@ -2,10 +2,17 @@
 
 namespace App\Models;
 
-use App\Core\Base\BaseModel;
+use App\Core\Database;
 
-class MedicamentoModel extends BaseModel
+class MedicamentoModel
 {
+    private Database $db;
+
+    public function __construct()
+    {
+        $this->db = Database::getInstance();
+    }
+
     public function buscar(string $term): array
     {
         $sql = "SELECT idmedicina, nombre, stock, tipoinsumo
@@ -14,7 +21,26 @@ class MedicamentoModel extends BaseModel
                 ORDER BY nombre ASC
                 LIMIT 20";
 
-        return $this->fetchAll($this->db->query($sql, [':term' => "%{$term}%"]));
+        return $this->db->query($sql, [':term' => "%{$term}%"])->fetchAll() ?: [];
+    }
+
+    public function listar(?string $q = null): array
+    {
+        if ($q !== null && trim($q) !== '') {
+            return $this->db->query(
+                'SELECT idmedicina, nombre, stock, tipoinsumo
+                   FROM medicamento
+                  WHERE nombre LIKE :q
+                  ORDER BY nombre ASC',
+                [':q' => '%' . trim($q) . '%']
+            )->fetchAll() ?: [];
+        }
+
+        return $this->db->query(
+            'SELECT idmedicina, nombre, stock, tipoinsumo
+               FROM medicamento
+              ORDER BY nombre ASC'
+        )->fetchAll() ?: [];
     }
 
     public function obtenerPorId(int $id): ?array
@@ -23,16 +49,21 @@ class MedicamentoModel extends BaseModel
                 FROM medicamento
                 WHERE idmedicina = :id";
 
-        return $this->fetch($this->db->query($sql, [':id' => $id]));
+        $row = $this->db->query($sql, [':id' => $id])->fetch() ?: [];
+        return $row ?: null;
     }
 
-    public function listar(): array
+    public function findByNombre(string $nombre): ?array
     {
-        $sql = "SELECT idmedicina, nombre, stock, tipoinsumo
-                FROM medicamento
-                ORDER BY tipoinsumo ASC, nombre ASC";
+        $row = $this->db->query(
+            'SELECT idmedicina, nombre, stock, tipoinsumo
+               FROM medicamento
+              WHERE UPPER(nombre) = UPPER(:nombre)
+              LIMIT 1',
+            [':nombre' => $nombre]
+        )->fetch() ?: [];
 
-        return $this->fetchAll($this->db->query($sql));
+        return $row ?: null;
     }
 
     public function crear(array $data): string
@@ -49,7 +80,7 @@ class MedicamentoModel extends BaseModel
         return $this->db->lastInsertId();
     }
 
-    public function actualizar(int $id, array $data)
+    public function actualizar(int $id, array $data): bool
     {
         $sql = "UPDATE medicamento SET
                     nombre = :nombre,
@@ -57,26 +88,30 @@ class MedicamentoModel extends BaseModel
                     tipoinsumo = :tipoinsumo
                 WHERE idmedicina = :id";
 
-        return $this->db->query($sql, [
+        $stmt = $this->db->query($sql, [
             ':id' => $id,
             ':nombre' => trim((string) ($data['nombre'] ?? '')),
             ':stock' => (int) ($data['stock'] ?? 0),
             ':tipoinsumo' => trim((string) ($data['tipoinsumo'] ?? 'MEDICAM')),
         ]);
+
+        return $stmt->rowCount() >= 0;
     }
 
-    public function ajustarStock(int $id, int $cantidad, string $tipo)
+    public function ajustarStock(int $id, int $cantidad, string $tipo): bool
     {
         $operador = strtoupper($tipo) === 'S' ? '-' : '+';
         $sql = "UPDATE medicamento SET stock = stock {$operador} :cantidad WHERE idmedicina = :id";
 
-        return $this->db->query($sql, [
+        $stmt = $this->db->query($sql, [
             ':cantidad' => $cantidad,
             ':id' => $id,
         ]);
+
+        return $stmt->rowCount() > 0;
     }
 
-    public function registrarMovimiento(int $idProducto, int $cantidad, string $tipo, string $descripcion, string $usuario)
+    public function registrarMovimiento(int $idProducto, int $cantidad, string $tipo, string $descripcion, string $usuario): bool
     {
         $sql = "INSERT INTO movimientoalmacen (
                     tipomovimiento,
@@ -94,12 +129,40 @@ class MedicamentoModel extends BaseModel
                     :usuario
                 )";
 
-        return $this->db->query($sql, [
+        $stmt = $this->db->query($sql, [
             ':tipomovimiento' => strtoupper($tipo),
             ':idproducto' => $idProducto,
             ':cantidad' => $cantidad,
             ':descripcion' => trim($descripcion),
             ':usuario' => trim($usuario),
         ]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    public function contarMovimientos(int $id): int
+    {
+        $row = $this->db->query(
+            'SELECT COUNT(*) AS total FROM movimientoalmacen WHERE idproducto = :id',
+            [':id' => $id]
+        )->fetch() ?: [];
+
+        return (int) ($row['total'] ?? 0);
+    }
+
+    public function contarTratamientos(int $id): int
+    {
+        $row = $this->db->query(
+            'SELECT COUNT(*) AS total FROM tratamiento WHERE idmedicina = :id',
+            [':id' => $id]
+        )->fetch() ?: [];
+
+        return (int) ($row['total'] ?? 0);
+    }
+
+    public function eliminar(int $id): bool
+    {
+        $stmt = $this->db->query('DELETE FROM medicamento WHERE idmedicina = :id', [':id' => $id]);
+        return $stmt->rowCount() > 0;
     }
 }

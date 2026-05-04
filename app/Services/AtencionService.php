@@ -3,6 +3,9 @@
 namespace App\Services;
 
 use App\Core\Database;
+use App\Core\Logger;
+use App\Core\ValidationException;
+use App\Core\Validator;
 use App\Models\AtencionModel;
 use App\Models\AntecedentesModel;
 use RuntimeException;
@@ -21,14 +24,60 @@ class AtencionService
         $this->antecedentes = new AntecedentesModel();
     }
 
+    public function listarPorFecha(string $fecha): array
+    {
+        return array_map(fn(array $r): array => [
+            'idatencion'    => (int) $r['idatencion'],
+            'fechaatencion' => $r['fechaatencion'],
+            'paciente'      => trim($r['nombre'] . ' ' . $r['apellidos']),
+            'dni'           => $r['idpaciente'],
+            'motivo'        => $r['motivoconsulta'] ?? '',
+            'estado'        => $r['estado'],
+        ], $this->atencion->listarPorFecha($fecha));
+    }
+
+    public function obtener(int $id): array
+    {
+        $atencion = $this->atencion->obtenerConDetalles($id);
+        if ($atencion === null) {
+            throw new RuntimeException('Atencion no encontrada', 404);
+        }
+        return $atencion;
+    }
+
+    public function listarPorPaciente(string $dni): array
+    {
+        return array_map(fn(array $r): array => [
+            'idatencion' => (int) $r['idatencion'],
+            'fecha'      => $r['fechaatencion'],
+            'nombre'     => $r['motivoconsulta'] ?? 'Consulta',
+            'tipo'       => 'consulta',
+        ], $this->atencion->listarPorPaciente($dni));
+    }
+
+    public function antecedentesGenerales(string $dni): array
+    {
+        $generales = $this->antecedentes->findGeneralesByDni($dni) ?? [];
+        $atencion  = $this->antecedentes->findUltimosAtencionByDni($dni) ?? [];
+        return array_merge($generales, $atencion);
+    }
+
+    public function signosVitales(int $idAtencion): ?array
+    {
+        return $this->atencion->obtenerSignos($idAtencion);
+    }
+
     public function guardarAtencion(array $body): void
     {
-        $idAtencion = (int) ($body['idatencion'] ?? 0);
-        $dni = trim($body['dni'] ?? '');
-
-        if ($idAtencion <= 0) {
-            throw new RuntimeException('ID de atencion requerido', 422);
+        $v = Validator::make($body, [
+            'idatencion' => 'required|integer',
+        ]);
+        if ($v->fails()) {
+            throw new ValidationException($v->errors());
         }
+
+        $idAtencion = (int) $body['idatencion'];
+        $dni        = trim($body['dni'] ?? '');
 
         $this->db->beginTransaction();
 
@@ -69,19 +118,24 @@ class AtencionService
             ]);
 
             $this->db->commit();
+            Logger::info('Atencion guardada', ['idatencion' => $idAtencion, 'dni' => $dni]);
         } catch (Throwable $e) {
             $this->db->rollBack();
+            Logger::error('Error al guardar atencion', ['idatencion' => $idAtencion, 'error' => $e->getMessage()]);
             throw $e;
         }
     }
 
     public function registrarSignos(array $body): void
     {
-        $idAtencion = (int) ($body['idatencion'] ?? 0);
-
-        if ($idAtencion <= 0) {
-            throw new RuntimeException('ID de atencion requerido', 422);
+        $v = Validator::make($body, [
+            'idatencion' => 'required|integer',
+        ]);
+        if ($v->fails()) {
+            throw new ValidationException($v->errors());
         }
+
+        $idAtencion = (int) $body['idatencion'];
 
         $this->atencion->guardarSignos($idAtencion, [
             'fr'   => $body['fc'] ?? '',
@@ -89,25 +143,6 @@ class AtencionService
             'temp' => $body['temp'] ?? '',
             'so2'  => $body['so2'] ?? '',
             'peso' => $body['peso'] ?? '',
-        ]);
-    }
-
-    public function registrarTratamiento(array $body): int
-    {
-        $idAtencion = (int) ($body['idatencion'] ?? 0);
-        $idMedicina = (int) ($body['idmedicina'] ?? 0);
-
-        if ($idAtencion <= 0) {
-            throw new RuntimeException('ID de atencion requerido', 422);
-        }
-
-        if ($idMedicina <= 0) {
-            throw new RuntimeException('Medicamento requerido', 422);
-        }
-
-        return (int) $this->atencion->agregarTratamiento($idAtencion, [
-            'idmedicina'   => $idMedicina,
-            'indicaciones' => trim($body['indicaciones'] ?? ''),
         ]);
     }
 }

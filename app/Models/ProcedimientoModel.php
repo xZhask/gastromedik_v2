@@ -2,17 +2,10 @@
 
 namespace App\Models;
 
-use App\Core\Database;
+use App\Core\Base\BaseModel;
 
-class ProcedimientoModel
+class ProcedimientoModel extends BaseModel
 {
-    private Database $db;
-
-    public function __construct()
-    {
-        $this->db = Database::getInstance();
-    }
-
     public function listar(): array
     {
         return $this->db->query('SELECT * FROM tipo_atencion')->fetchAll() ?: [];

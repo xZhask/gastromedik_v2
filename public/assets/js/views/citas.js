@@ -1,19 +1,27 @@
 /**
- * views/citas.js
- * Vista Citas: lista por fecha, registro/edición, anulación y pago.
- * Los IDs viven en los datos JS — nunca en celdas ocultas del DOM.
+ * views/citas.js — Agenda diaria con navegador de fecha, contadores y CRUD.
+ *
+ * Mejoras UX/UI fase 3:
+ *  · Cabecera con navegador ← Hoy → en lugar de input date suelto.
+ *  · Tira de contadores por estado.
+ *  · Columnas: hora prominente, paciente con avatar, estado unificado.
+ *  · Form de cita en dos secciones: Paciente / Cita.
+ *  · Empty state contextual con CTA.
  */
 
-import { api }        from '../utils/api.js'
-import { toastOk, toastError } from '../utils/toast.js'
-import { icon, iconBtn } from '../utils/icons.js'
-import { openModal, closeModal } from '../components/modal.js'
-import { confirm }    from '../components/confirm.js'
-import { renderTable, wrapTable } from '../components/table.js'
+import { api }                       from '../utils/api.js'
+import { toastOk, toastError }       from '../utils/toast.js'
+import { icon, iconBtn }             from '../utils/icons.js'
+import { openModal, closeModal }     from '../components/modal.js'
+import { confirm }                   from '../components/confirm.js'
+import { renderTable, wrapTable }    from '../components/table.js'
+import { skeletonTable }             from '../components/skeleton.js'
 
 const content = () => document.getElementById('app-content')
 const CARGO   = parseInt(document.querySelector('meta[name="user-cargo"]')?.content ?? '0')
-let PROCEDIMIENTOS = []  // caché para autocomplete
+
+let PROCEDIMIENTOS = []
+let CITAS_CACHE    = []
 
 // ── Punto de entrada ──────────────────────────────────────────────────────────
 
@@ -21,19 +29,52 @@ export async function CitasView() {
   const hoy = new Date().toISOString().split('T')[0]
 
   content().innerHTML = `
-    <div class="cabecera">
-      <h2>Citas</h2>
-      <div class="cont-control">
-        <input type="date" id="fecha-citas" value="${hoy}" />
+    <div class="citas-header">
+      <div class="citas-header__top">
+        <div class="citas-header__title">
+          <h1>Citas</h1>
+          <span class="gm-page-header__sub" id="citas-fecha-label"></span>
+        </div>
+
+        <div class="citas-header__nav">
+          <button class="icon-btn" id="btn-fecha-prev" aria-label="Día anterior">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button class="btn-secundario btn-sm" id="btn-fecha-hoy" type="button">Hoy</button>
+          <button class="icon-btn" id="btn-fecha-next" aria-label="Día siguiente">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <input type="date" id="fecha-citas" value="${hoy}" />
+        </div>
+
+        <div class="citas-header__actions">
+          <button class="btn-secundario" id="btn-buscar-cita" type="button">${icon('search')} Buscar</button>
+          <button class="btn-primario"   id="btn-nueva-cita"  type="button">${icon('plus')} Nueva cita</button>
+        </div>
       </div>
-      <div class="cont-groupbotones">
-        <button class="btn-secundario" id="btn-buscar-cita" type="button">Buscar Cita</button>
-        <button class="btn-secundario" id="btn-nueva-cita" type="button">${icon('plus')} Nueva Cita</button>
+
+      <div class="citas-stats" id="citas-stats" hidden>
+        <div class="gm-stat gm-stat--verde">
+          <span class="gm-stat__label">Pagadas</span>
+          <span class="gm-stat__value" id="stat-pagadas">0</span>
+        </div>
+        <div class="gm-stat gm-stat--rojo">
+          <span class="gm-stat__label">Por pagar</span>
+          <span class="gm-stat__value" id="stat-por-pagar">0</span>
+        </div>
+        <div class="gm-stat gm-stat--ambar">
+          <span class="gm-stat__label">A cuenta</span>
+          <span class="gm-stat__value" id="stat-cuenta">0</span>
+        </div>
+        <div class="gm-stat">
+          <span class="gm-stat__label">Anuladas</span>
+          <span class="gm-stat__value" id="stat-anuladas">0</span>
+        </div>
       </div>
     </div>
+
     <div id="tabla-citas-wrap"></div>`
 
-  // Cargar procedimientos para autocomplete (una vez)
   try {
     const r = await api.get('/api/procedimientos')
     PROCEDIMIENTOS = r.data ?? []
@@ -43,76 +84,187 @@ export async function CitasView() {
   bindEventos()
 }
 
-// ── Carga de datos ────────────────────────────────────────────────────────────
+// ── Carga ─────────────────────────────────────────────────────────────────────
 
 async function cargarCitas() {
-  const wrap  = document.getElementById('tabla-citas-wrap')
+  const wrap = document.getElementById('tabla-citas-wrap')
   if (!wrap) return
-  wrap.innerHTML = `<div class="state-loading"><div class="spinner"></div></div>`
+  wrap.innerHTML = skeletonTable(6, 5)
 
   const fecha = document.getElementById('fecha-citas')?.value ?? new Date().toISOString().split('T')[0]
+  actualizarLabelFecha(fecha)
 
   try {
-    const res = await api.get('/api/citas', { fecha });
-    const data = Array.isArray(res.data) ? res.data : [];
+    const res  = await api.get('/api/citas', { fecha })
+    const data = Array.isArray(res.data) ? res.data : []
+    CITAS_CACHE = data
 
-if (data.length === 0) {
-      wrap.innerHTML = `<div class="state-empty">No hay citas para esta fecha.</div>`
+    actualizarContadores(data)
+
+    if (!data.length) {
+      wrap.innerHTML = renderVacio(fecha)
+      document.getElementById('btn-vacio-nueva')?.addEventListener('click', () => abrirFormCita(null))
       return
     }
+
     wrap.innerHTML = wrapTable(renderTable({
-      columns:  buildColumns(CARGO),
+      columns: buildColumns(CARGO),
       rows: data.map(c => ({
-        _id: c.idcita,
-        idcita: c.idcita,
-        horario: c.horario,
-        paciente: c.paciente,
-        motivo: c.motivo,
-        telefono: c.telefono,
-        estado: c.estado,
+        _id:            c.idcita,
+        idcita:         c.idcita,
+        horario:        c.horario,
+        paciente:       c.paciente,
+        motivo:         c.motivo,
+        telefono:       c.telefono,
+        estado:         c.estado,
         atencion_estado: c.atencion?.estado ?? null,
       })),
-      rowClass: () => '',
     }))
   } catch (err) {
     wrap.innerHTML = `<div class="state-error">${err.message}</div>`
   }
 }
 
+function actualizarLabelFecha(fecha) {
+  const el = document.getElementById('citas-fecha-label')
+  if (!el) return
+  const d = new Date(fecha + 'T00:00:00')
+  const opts = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }
+  el.textContent = d.toLocaleDateString('es-PE', opts)
+}
+
+function actualizarContadores(data) {
+  const stats = document.getElementById('citas-stats')
+  if (!data.length) { stats.hidden = true; return }
+  stats.hidden = false
+
+  const c = { pagadas: 0, porPagar: 0, cuenta: 0, anuladas: 0 }
+  data.forEach(x => {
+    if      (x.estado === 'ANULADO')   c.anuladas++
+    else if (x.estado === 'POR PAGAR') c.porPagar++
+    else if (x.estado === 'A CUENTA')  c.cuenta++
+    else                               c.pagadas++
+  })
+  document.getElementById('stat-pagadas').textContent   = c.pagadas
+  document.getElementById('stat-por-pagar').textContent = c.porPagar
+  document.getElementById('stat-cuenta').textContent    = c.cuenta
+  document.getElementById('stat-anuladas').textContent  = c.anuladas
+}
+
+function renderVacio(fecha) {
+  const d = new Date(fecha + 'T00:00:00')
+  const human = d.toLocaleDateString('es-PE', { day: 'numeric', month: 'long' })
+  return `
+    <div class="gm-empty">
+      <div class="gm-empty__icon">${icon('clock')}</div>
+      <p class="gm-empty__text">No hay citas registradas para el <b>${human}</b>.</p>
+      <button class="btn-primario" id="btn-vacio-nueva" style="margin-top:10px;">${icon('plus')} Crear cita para este día</button>
+    </div>`
+}
+
+// ── Columnas ──────────────────────────────────────────────────────────────────
+
 function buildColumns(cargo) {
   return [
-    { key: 'horario',  label: 'Hora',     align: 'center' },
-    { key: 'paciente', label: 'Paciente' },
-    { key: 'motivo',   label: 'Motivo de Consulta' },
-    { key: 'telefono', label: 'Celular',  align: 'center' },
     {
-      label: 'Pago', align: 'center',
-      render: c => {
-        if (c.estado === 'ANULADO') return `<span class="badge badge-rojo">Anulado</span>`
-        if (c.estado === 'POR PAGAR') return `<button class="link-btn lnk-red" data-action="pagar" title="Registrar pago">Reg. Pago</button>`
-        if (c.estado === 'A CUENTA')  return `<button class="link-btn lnk-Ambar" data-action="pagar" title="Registrar pago">A Cuenta</button>`
-        return `<span class="badge badge-verde">${c.estado}</span>`
-      },
+      label: 'Hora',
+      align: 'center',
+      render: c => `<span class="cita-hora">${formatearHora(c.horario)}</span>`,
     },
     {
-      label: 'Editar', align: 'center',
-      render: c => {
-        if (c.atencion_estado === 'FINALIZADO') return `<span class="badge badge-verde">Finalizado</span>`
-        if (c.estado === 'ANULADO')             return ''
-        return iconBtn('sliders', 'editar', 'Editar cita', 'icon-edit')
-      },
+      label: 'Paciente',
+      render: c => `
+        <div class="pac-cell">
+          <div class="gm-avatar gm-avatar--ocre">${iniciales(c.paciente)}</div>
+          <div class="pac-cell__info">
+            <span class="pac-cell__name">${escapeHtml(c.paciente)}</span>
+            <span class="pac-cell__meta">${escapeHtml(c.motivo ?? 'Sin motivo')}</span>
+          </div>
+        </div>`,
     },
-    ...(cargo === 1 ? [{
-      label: 'Anular', align: 'center',
-      render: c => (c.estado === 'ANULADO' || c.atencion_estado === 'FINALIZADO') ? '' : iconBtn('cancel', 'anular', 'Anular cita', 'icon-danger'),
-    }] : []),
     {
-      label: 'Ticket', align: 'center',
-      render: c => (c.estado === 'A CUENTA' || c.estado === 'PAGADO')
-        ? iconBtn('print', 'ticket', 'Imprimir ticket', 'icon-info')
-        : '',
+      key: 'telefono',
+      label: 'Teléfono',
+      align: 'center',
+      render: c => c.telefono
+        ? `<a href="tel:${c.telefono}" class="link-tel">${c.telefono}</a>`
+        : '<span class="muted">—</span>',
+    },
+    {
+      label: 'Estado',
+      align: 'center',
+      render: c => renderEstadoCelda(c),
+    },
+    {
+      label: 'Acciones',
+      align: 'right',
+      render: c => renderAccionesCelda(c, cargo),
     },
   ]
+}
+
+function renderEstadoCelda(c) {
+  if (c.estado === 'ANULADO') {
+    return `<span class="badge badge-rojo">Anulada</span>`
+  }
+  if (c.atencion_estado === 'FINALIZADO') {
+    return `<span class="badge badge-verde">Atendida</span>`
+  }
+  if (c.atencion_estado === 'EN PROGR' || c.atencion_estado === 'INICIADO') {
+    return `<span class="badge badge-azul">En atención</span>`
+  }
+  if (c.estado === 'POR PAGAR') {
+    return `<button class="badge badge-rojo cita-badge-link" data-action="pagar">Por pagar</button>`
+  }
+  if (c.estado === 'A CUENTA') {
+    return `<button class="badge badge-ambar cita-badge-link" data-action="pagar">A cuenta</button>`
+  }
+  if (c.estado === 'PAGADO') {
+    return `<span class="badge badge-verde">Pagada</span>`
+  }
+  return `<span class="badge badge-gris">${escapeHtml(c.estado ?? '—')}</span>`
+}
+
+function renderAccionesCelda(c, cargo) {
+  const finalizada = c.atencion_estado === 'FINALIZADO'
+  const anulada    = c.estado === 'ANULADO'
+
+  if (anulada || finalizada) {
+    if (c.estado === 'PAGADO' || c.estado === 'A CUENTA') {
+      return `<div class="pac-actions">${iconBtn('print', 'ticket', 'Imprimir ticket', 'icon-info')}</div>`
+    }
+    return `<span class="muted">—</span>`
+  }
+
+  const ticketBtn = (c.estado === 'A CUENTA' || c.estado === 'PAGADO')
+    ? iconBtn('print', 'ticket', 'Imprimir ticket', 'icon-info')
+    : ''
+  const editarBtn = iconBtn('sliders', 'editar', 'Editar cita', 'icon-edit')
+  const anularBtn = cargo === 1
+    ? iconBtn('cancel', 'anular', 'Anular cita', 'icon-danger')
+    : ''
+
+  return `<div class="pac-actions">${ticketBtn}${editarBtn}${anularBtn}</div>`
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatearHora(h) {
+  if (!h) return '—'
+  return h.slice(0, 5)
+}
+
+function iniciales(nombreCompleto = '') {
+  const partes = nombreCompleto.trim().split(/\s+/)
+  const a = partes[0]?.[0] ?? ''
+  const b = partes[1]?.[0] ?? ''
+  return (a + b).toUpperCase() || '·'
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]))
 }
 
 // ── Eventos ───────────────────────────────────────────────────────────────────
@@ -121,6 +273,13 @@ function bindEventos() {
   const el = content()
 
   el.querySelector('#fecha-citas')?.addEventListener('change', cargarCitas)
+  el.querySelector('#btn-fecha-prev')?.addEventListener('click', () => cambiarFecha(-1))
+  el.querySelector('#btn-fecha-next')?.addEventListener('click', () => cambiarFecha(+1))
+  el.querySelector('#btn-fecha-hoy')?.addEventListener('click', () => {
+    document.getElementById('fecha-citas').value = new Date().toISOString().split('T')[0]
+    cargarCitas()
+  })
+
   el.querySelector('#btn-nueva-cita')?.addEventListener('click', () => abrirFormCita(null))
   el.querySelector('#btn-buscar-cita')?.addEventListener('click', () => abrirBusquedaCita())
 
@@ -145,7 +304,16 @@ function bindEventos() {
   })
 }
 
-// ── CRUD Cita ──────────────────────────────────────────────────────────────────
+function cambiarFecha(dias) {
+  const input = document.getElementById('fecha-citas')
+  if (!input) return
+  const d = new Date(input.value + 'T00:00:00')
+  d.setDate(d.getDate() + dias)
+  input.value = d.toISOString().split('T')[0]
+  cargarCitas()
+}
+
+// ── CRUD ──────────────────────────────────────────────────────────────────────
 
 async function editarCita(idcita) {
   try {
@@ -179,70 +347,88 @@ function abrirFormCita(cita) {
   ).join('')
 
   const html = `
-    <h2 class="modal-title">${isEdit ? 'Editar Cita' : 'Nueva Cita'}</h2>
+    <h2 class="modal-title">${isEdit ? 'Editar cita' : 'Nueva cita'}</h2>
     <form id="form-cita" novalidate>
-      <div class="cont-group">
-        <div class="cont-control">
-          <label>DNI del Paciente</label>
-          ${isEdit
-            ? `<input type="text" name="dni" value="${cita?.dni ?? ''}" readonly required maxlength="8" />`
-            : `<div class="cont-busqueda">
-                 <input type="text" name="dni" value="" required maxlength="8" autocomplete="off" placeholder="Ingrese DNI" />
-                 <button type="button" id="btn-buscar-dni-cita" title="Buscar DNI">${icon('search')}</button>
-               </div>`
-          }
+
+      <section class="cita-form-section">
+        <h3 class="cita-form-section__title">Paciente</h3>
+
+        <div class="cont-group">
+          <div class="cont-control">
+            <label>DNI del Paciente</label>
+            ${isEdit
+              ? `<input type="text" name="dni" value="${cita?.dni ?? ''}" readonly required maxlength="8" />`
+              : `<div class="cont-busqueda">
+                   <input type="text" name="dni" value="" required maxlength="8" autocomplete="off" placeholder="Ingrese DNI" />
+                   <button type="button" id="btn-buscar-dni-cita" title="Buscar DNI">${icon('search')}</button>
+                 </div>`
+            }
+          </div>
+          <div class="cont-control">
+            <label>Nombre</label>
+            <input type="text" name="nombre" value="${cita?.nombrepaciente ?? ''}" ${isEdit ? '' : 'readonly'} />
+          </div>
+          <div class="cont-control">
+            <label>Apellidos</label>
+            <input type="text" name="apellidos" value="${cita?.apellidospaciente ?? ''}" ${isEdit ? '' : 'readonly'} />
+          </div>
+          <div class="cont-control">
+            <label>Teléfono</label>
+            <input type="text" name="telefono" value="${cita?.telefono ?? ''}" ${isEdit ? '' : 'readonly'} />
+          </div>
         </div>
-        <div class="cont-control">
-          <label>Nombre del Paciente</label>
-          <input type="text" name="nombre" value="${cita?.nombrepaciente ?? ''}" ${isEdit ? '' : 'readonly'} />
-        </div>
-        <div class="cont-control">
-          <label>Apellidos</label>
-          <input type="text" name="apellidos" value="${cita?.apellidospaciente ?? ''}" ${isEdit ? '' : 'readonly'} />
-        </div>
-        <div class="cont-control">
-          <label>Procedimiento / Motivo</label>
-          <select name="idtipoatencion" id="sel-proc" required>
-            <option value="">Seleccionar…</option>${optsProc}
-          </select>
-        </div>
-        <div class="cont-control">
-          <label>Precio</label>
-          <input type="number" name="precio" value="${cita?.precio ?? ''}" step="0.01" />
-        </div>
-        <div class="cont-control">
-          <label>Fecha</label>
-          <input type="date" name="fecha" value="${cita?.fecha ?? hoy}" min="${hoy}" required />
-        </div>
-        <div class="cont-control">
-          <label>Hora</label>
-          <input type="time" name="horario" value="${cita?.horario ?? ''}" required />
-        </div>
-        <div class="cont-control">
-          <label>Teléfono</label>
-          <input type="text" name="telefono" value="${cita?.telefono ?? ''}" ${isEdit ? '' : 'readonly'} />
-        </div>
+
         ${!isEdit ? `
-        <div class="cont-control" id="wrap-fecha-nac" hidden>
-          <label>Fecha de nacimiento</label>
-          <input type="date" name="fecha_nac" value="" />
+        <div id="wrap-fecha-nac" hidden>
+          <div class="cita-fecha-nac-hint">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>Paciente no encontrado en RENIEC. Complete los datos manualmente.</span>
+          </div>
+          <div class="cont-control">
+            <label>Fecha de nacimiento</label>
+            <input type="date" name="fecha_nac" value="" />
+          </div>
         </div>` : ''}
-      </div>
-      <div style="display:flex;gap:8px;margin-top:12px;">
-        <button type="submit" class="btn-primario">${isEdit ? 'Actualizar' : 'Registrar'}</button>
+      </section>
+
+      <section class="cita-form-section">
+        <h3 class="cita-form-section__title">Cita</h3>
+
+        <div class="cont-group">
+          <div class="cont-control">
+            <label>Procedimiento / Motivo</label>
+            <select name="idtipoatencion" id="sel-proc" required>
+              <option value="">Seleccionar…</option>${optsProc}
+            </select>
+          </div>
+          <div class="cont-control">
+            <label>Precio</label>
+            <input type="number" name="precio" value="${cita?.precio ?? ''}" step="0.01" />
+          </div>
+          <div class="cont-control">
+            <label>Fecha</label>
+            <input type="date" name="fecha" value="${cita?.fecha ?? hoy}" min="${hoy}" required />
+          </div>
+          <div class="cont-control">
+            <label>Hora</label>
+            <input type="time" name="horario" value="${cita?.horario ?? ''}" required />
+          </div>
+        </div>
+      </section>
+
+      <div class="form-pac__actions">
         <button type="button" class="btn-secundario btn-cancelar" id="btn-cancel-cita">Cancelar</button>
+        <button type="submit" class="btn-primario">${isEdit ? 'Actualizar' : 'Registrar'}</button>
       </div>
     </form>`
 
   openModal(html)
 
-  // Precio automático al cambiar procedimiento
   document.getElementById('sel-proc')?.addEventListener('change', (e) => {
     const opt = e.target.selectedOptions[0]
     document.querySelector('[name="precio"]').value = opt?.dataset.precio ?? ''
   })
 
-  // Autocompletar datos del paciente por DNI (BD local → API externa)
   if (!isEdit) {
     const inputDni  = document.querySelector('[name="dni"]')
     const btnBuscar = document.getElementById('btn-buscar-dni-cita')
@@ -274,7 +460,6 @@ function abrirFormCita(cita) {
           document.querySelector('[name="nombre"]').value    = data.nombre    ?? ''
           document.querySelector('[name="apellidos"]').value = data.apellidos ?? ''
           document.querySelector('[name="telefono"]').value  = data.telefono  ?? ''
-          // fecha_nac queda oculto: paciente ya existe
           return
         }
       } catch { /* 404 → intentar API externa */ }
@@ -313,7 +498,7 @@ function abrirFormCita(cita) {
         closeModal()
         cargarCitas()
       } else {
-        const res = await api.post('/api/citas', body)
+        const res    = await api.post('/api/citas', body)
         const idcita = res.data?.idcita ?? res.idcita
         toastOk('Cita registrada.')
         closeModal()
@@ -324,13 +509,8 @@ function abrirFormCita(cita) {
   })
 }
 
-// ── Caja ─────────────────────────────────────────────────────────────────────
+// ── Caja ──────────────────────────────────────────────────────────────────────
 
-/**
- * Verifica si la caja está abierta.
- * Si está cerrada, muestra un modal para aperturarla.
- * Resuelve `true` si la caja quedó abierta, `false` si el usuario canceló.
- */
 async function asegurarCajaAbierta() {
   try {
     const r = await api.get('/api/caja/verificar')
@@ -389,11 +569,6 @@ async function asegurarCajaAbierta() {
 
 // ── Pago ──────────────────────────────────────────────────────────────────────
 
-/**
- * Tras registrar una nueva cita: verifica caja y pregunta si registrar pago.
- * - Caja cerrada → aviso informativo (sin forzar apertura).
- * - Caja abierta → confirmación "¿registrar ahora?".
- */
 async function confirmarYPagar(idcita) {
   let cajaAbierta = false
   try {
@@ -520,7 +695,7 @@ function abrirBusquedaCita() {
     const wrap = document.getElementById('resultado-busqueda-cita')
     wrap.innerHTML = `<div class="state-loading"><div class="spinner"></div></div>`
     try {
-      const res = await api.get('/api/citas/buscar', { dni })
+      const res  = await api.get('/api/citas/buscar', { dni })
       const data = Array.isArray(res.data) ? res.data : []
       wrap.innerHTML = wrapTable(renderTable({
         columns: [
@@ -531,7 +706,7 @@ function abrirBusquedaCita() {
           { key: 'atencion_estado', label: 'Atención', align: 'center',
             render: c => c.atencion_estado ? estadoBadge(c.atencion_estado) : '—' },
         ],
-        rows:    data,
+        rows:     data,
         emptyMsg: 'No se encontraron citas para este DNI.',
       }))
     } catch (err) { wrap.innerHTML = `<div class="state-error">${err.message}</div>` }
@@ -541,7 +716,7 @@ function abrirBusquedaCita() {
   document.getElementById('q-buscar-cita').addEventListener('keydown', e => { if (e.key === 'Enter') ejecutar() })
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Ticket ────────────────────────────────────────────────────────────────────
 
 function abrirTicket(idcita) {
   const w = 800, h = 700
@@ -553,13 +728,13 @@ function abrirTicket(idcita) {
 
 function estadoBadge(estado) {
   const mapa = {
-    'PAGADO':    'badge-verde',
-    'A CUENTA':  'badge-ambar',
-    'POR PAGAR': 'badge-rojo',
-    'ANULADO':   'badge-rojo',
-    'FINALIZADO':'badge-verde',
-    'INICIADO':  'badge-azul',
-    'EN PROGR':  'badge-azul',
+    'PAGADO':     'badge-verde',
+    'A CUENTA':   'badge-ambar',
+    'POR PAGAR':  'badge-rojo',
+    'ANULADO':    'badge-rojo',
+    'FINALIZADO': 'badge-verde',
+    'INICIADO':   'badge-azul',
+    'EN PROGR':   'badge-azul',
   }
   return `<span class="badge ${mapa[estado] ?? 'badge-gris'}">${estado}</span>`
 }

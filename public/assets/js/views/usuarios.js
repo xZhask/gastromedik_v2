@@ -42,14 +42,14 @@ async function cargar() {
   if (!wrap) return
   wrap.innerHTML = `<div class="state-loading"><div class="spinner"></div></div>`
   try {
-    const { data, cargo } = await api.get('/api/personal')
+    const { data } = await api.get('/api/personal')
     wrap.innerHTML = wrapTable(renderTable({
       columns: [
         { key: 'dni',    label: 'DNI',     align: 'center' },
         { key: 'nombre', label: 'Nombres' },
         { key: 'nick',   label: 'Usuario', align: 'center' },
         { key: 'cargo',  label: 'Cargo',   align: 'center' },
-        ...(cargo === 1 ? [
+        ...(CARGO === 1 ? [
           { key: 'estado', label: 'Estado', align: 'center',
             render: r => `<span class="badge ${r.estado === 'ACTIVO' ? 'badge-verde' : 'badge-gris'}">${r.estado}</span>` },
           { label: 'Editar',     align: 'center', render: () => iconBtn('edit',   'editar',   'Editar',         'icon-edit') },
@@ -195,3 +195,5 @@ function abrirFormCargo() {
     } catch (err) { toastError(err.message) }
   })
 }
+
+

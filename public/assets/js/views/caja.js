@@ -13,34 +13,48 @@ let CAJA_ACTIVA = null
 
 export async function CajaView() {
   content().innerHTML = `
-    <div class="cabecera">
-      <h2>Caja</h2>
-      <div class="cont-groupbotones controls-caja">
-        <button class="btn-secundario" id="btn-aperturar" type="button">Aperturar Caja</button>
-        <button class="btn-secundario" id="btn-cerrar" type="button" disabled>Cerrar Caja</button>
-      </div>
-      <p id="lbl-fecha-caja" style="font-size:.85rem;color:var(--gris-dark);"></p>
-    </div>
-    <div id="caja-cerrada" class="state-empty" hidden>
-      <p>La caja está cerrada. Apertura para comenzar a registrar movimientos.</p>
-    </div>
-    <div id="caja-abierta" hidden>
-      <div class="cont-caja" style="display:flex;gap:24px;align-items:flex-start;">
-        <div style="flex:2;display:flex;flex-direction:column;gap:20px;">
-          <div class="cont-tabla" id="tabla-ingresos-wrap">
-            <div class="tabla-header">Últimos ingresos <button class="btn-secundario" id="btn-gasto" type="button" style="float:right;height:26px;font-size:.8rem;">${icon('plus')} Gasto</button></div>
-            <div id="tabla-ingresos-body"></div>
-          </div>
-          <div class="cont-tabla">
-            <div class="tabla-header">Gastos</div>
-            <div id="tabla-gastos-body"></div>
-          </div>
+    <div class="citas-header">
+      <div class="citas-header__top">
+        <div class="citas-header__title">
+          <h1>Caja</h1>
+          <span class="gm-page-header__sub" id="lbl-fecha-caja">Cargando estado…</span>
         </div>
-        <div class="cont-tabla" style="flex:1;">
-          <div class="tabla-header">Montos Totales</div>
+        <div class="citas-header__actions">
+          <button class="btn-secundario" id="btn-aperturar" type="button">Aperturar caja</button>
+          <button class="btn-peligro"    id="btn-cerrar"    type="button" disabled>Cerrar caja</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="caja-cerrada" class="gm-empty" hidden>
+      <div class="gm-empty__icon">${icon('cash')}</div>
+      <p class="gm-empty__text">La caja está cerrada. Apertúrela para registrar movimientos.</p>
+    </div>
+
+    <div id="caja-abierta" class="caja-grid" hidden>
+      <div class="caja-grid__main">
+        <div class="gm-card caja-card">
+          <header class="caja-card__head">
+            <h3>Últimos ingresos</h3>
+          </header>
+          <div id="tabla-ingresos-body"></div>
+        </div>
+
+        <div class="gm-card caja-card">
+          <header class="caja-card__head">
+            <h3>Gastos del día</h3>
+            <button class="btn-secundario btn-sm" id="btn-gasto" type="button">${icon('plus')} Registrar gasto</button>
+          </header>
+          <div id="tabla-gastos-body"></div>
+        </div>
+      </div>
+
+      <aside class="caja-grid__aside">
+        <div class="gm-card caja-totales">
+          <header class="caja-card__head"><h3>Resumen del día</h3></header>
           <div id="tabla-montos-body"></div>
         </div>
-      </div>
+      </aside>
     </div>`
 
   await verificarCaja()
@@ -65,7 +79,7 @@ function mostrarCajaCerrada() {
   document.getElementById('caja-abierta').hidden = true
   document.getElementById('btn-aperturar').disabled = false
   document.getElementById('btn-cerrar').disabled    = true
-  document.getElementById('lbl-fecha-caja').textContent = ''
+  document.getElementById('lbl-fecha-caja').textContent = 'Sin caja activa'
 }
 
 function mostrarCajaAbierta() {
@@ -73,7 +87,7 @@ function mostrarCajaAbierta() {
   document.getElementById('caja-abierta').hidden = false
   document.getElementById('btn-aperturar').disabled = true
   document.getElementById('btn-cerrar').disabled    = false
-  document.getElementById('lbl-fecha-caja').textContent = `Apertura: ${CAJA_ACTIVA?.fecha_apertura ?? ''}`
+  document.getElementById('lbl-fecha-caja').textContent = `Caja abierta desde ${CAJA_ACTIVA?.fecha_apertura ?? ''}`
   cargarIngresos()
   cargarGastos()
   cargarMontos()

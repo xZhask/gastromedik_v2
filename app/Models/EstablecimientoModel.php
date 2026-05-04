@@ -2,17 +2,10 @@
 
 namespace App\Models;
 
-use App\Core\Database;
+use App\Core\Base\BaseModel;
 
-class EstablecimientoModel
+class EstablecimientoModel extends BaseModel
 {
-    private Database $db;
-
-    public function __construct()
-    {
-        $this->db = Database::getInstance();
-    }
-
     public function listarEstablecimientos(): array
     {
         return $this->db->query('SELECT * FROM consultorios_externos')->fetchAll() ?: [];

@@ -30,15 +30,4 @@ class PageController
 
         Response::view('app.shell', compact('cargo', 'iduser', 'nombre', 'tiposPago'));
     }
-
-    /** GET /api/session — datos de sesión para el frontend */
-    public function session(Request $request): void
-    {
-        $user = Auth::user();
-        Response::json([
-            'cargo'  => (int) ($user['cargo'] ?? 0),
-            'iduser' => $user['id'] ?? '',
-            'nombre' => ($user['apellidos'] ?? '') . ', ' . ($user['nombre'] ?? ''),
-        ]);
-    }
 }

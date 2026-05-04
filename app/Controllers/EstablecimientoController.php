@@ -3,45 +3,45 @@
 namespace App\Controllers;
 
 use App\Core\Request;
-use App\Core\Response;
-use App\Models\EstablecimientoModel;
+use App\Core\Base\BaseController;
+use App\Services\EstablecimientoService;
 
-class EstablecimientoController
+class EstablecimientoController extends BaseController
 {
-    private EstablecimientoModel $establecimientos;
+    private EstablecimientoService $service;
 
     public function __construct()
     {
-        $this->establecimientos = new EstablecimientoModel();
+        $this->service = new EstablecimientoService();
     }
 
     /** GET /api/establecimientos */
-    public function index(Request $request): void
+    public function index(Request $_request): void
     {
-        $filas = $this->establecimientos->listarEstablecimientos();
-        $data  = array_map(fn($f) => [
+        $filas = $this->service->listar();
+        $data  = array_map(fn(array $f): array => [
             'idhospital' => (int) $f['idhospital'],
             'nombre'     => $f['nombre'],
         ], $filas);
-        Response::json($data);
+        $this->json($data);
     }
 
     /** GET /api/establecimientos/tipo-atenciones */
-    public function tipoAtenciones(Request $request): void
+    public function tipoAtenciones(Request $_request): void
     {
-        $filas = $this->establecimientos->listarTipoAtenciones();
-        $data  = array_map(fn($f) => [
+        $filas = $this->service->listarTipoAtenciones();
+        $data  = array_map(fn(array $f): array => [
             'idtipoatencion' => (int) $f['idtipoatencion'],
             'nombre'         => $f['nombre'],
         ], $filas);
-        Response::json($data);
+        $this->json($data);
     }
 
     /** POST /api/establecimientos */
     public function store(Request $request): void
     {
         $body = $request->json();
-        $this->establecimientos->registrarEstablecimiento($body['nombre'] ?? '');
-        Response::json(['message' => 'Establecimiento registrado'], 201);
+        $this->service->registrar($body['nombre'] ?? '');
+        $this->json(['message' => 'Establecimiento registrado'], true, null, 201);
     }
 }

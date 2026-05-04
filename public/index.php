@@ -14,6 +14,13 @@
 
 declare(strict_types=1);
 
+ob_start(); // captura cualquier salida (warnings, notices) antes del response
+
+ini_set('default_charset', 'UTF-8');
+if (function_exists('mb_internal_encoding')) {
+    mb_internal_encoding('UTF-8');
+}
+
 // ── Constantes globales ───────────────────────────────────────────────────────
 define('BASE_PATH',    dirname(__DIR__));
 define('APP_PATH',     BASE_PATH . '/app');
@@ -29,6 +36,7 @@ use App\Core\Request;
 use App\Core\Router;
 use App\Core\Session;
 use App\Core\Response;
+use App\Core\ValidationException;
 
 // ── Configuración de errores ──────────────────────────────────────────────────
 $appConfig = require CONFIG_PATH . '/app.php';
@@ -47,13 +55,24 @@ if ($appConfig['debug']) {
 
 // ── Manejador global de excepciones no capturadas ─────────────────────────────
 set_exception_handler(function (Throwable $e) use ($appConfig): void {
-    $status  = (int) $e->getCode() ?: 500;
-    $message = $appConfig['debug']
-        ? $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine()
-        : 'Ha ocurrido un error interno. Por favor intente más tarde.';
+    if ($e instanceof ValidationException) {
+        Response::validationError($e->getErrors());
+        return;
+    }
+
+    $status = (int) $e->getCode() ?: 500;
+    $safeStatus = $status >= 100 && $status < 600 ? $status : 500;
+
+    if ($status >= 400 && $status < 500) {
+        $message = $e->getMessage();
+    } elseif ($appConfig['debug']) {
+        $message = $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine();
+    } else {
+        $message = 'Ha ocurrido un error interno. Por favor intente más tarde.';
+    }
 
     error_log($e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-    Response::json(['error' => $message], $status >= 100 && $status < 600 ? $status : 500);
+    Response::json(['error' => $message], $safeStatus);
 });
 
 // ── Sesión ────────────────────────────────────────────────────────────────────

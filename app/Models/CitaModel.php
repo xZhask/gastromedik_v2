@@ -2,18 +2,10 @@
 
 namespace App\Models;
 
-use App\Core\Database;
 use App\Core\Base\BaseModel;
-
 
 class CitaModel extends BaseModel
 {
-
-    public function __construct()
-    {
-        $this->db = Database::getInstance();
-    }
-
     /** Lista citas de una fecha concreta con datos de paciente y tipo de atención */
     public function listarPorFecha(string $fecha): array
     {
@@ -133,11 +125,6 @@ class CitaModel extends BaseModel
         return $row ?: null;
     }
 
-    public function ultimoId(): int
-    {
-        $row = $this->db->query('SELECT MAX(idcita) AS idcita FROM cita')->fetch() ?: [];
-        return (int) ($row['idcita'] ?? 0);
-    }
 
     public function registrar(array $cita): int
     {
@@ -192,7 +179,7 @@ class CitaModel extends BaseModel
         return $this->actualizarEstado($idcita, 'ANULADO');
     }
 
-    // ── Citas externas ────────────────────────────────��──────────────────────
+    // Citas externas
 
     public function registrarCitaExterna(array $cita): bool
     {
@@ -306,3 +293,4 @@ class CitaModel extends BaseModel
         )->fetchAll() ?: [];
     }
 }
+

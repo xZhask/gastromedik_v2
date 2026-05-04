@@ -2,33 +2,37 @@
 
 namespace App\Models;
 
-use App\Core\Database;
+use App\Core\Base\BaseModel;
 
-class PacienteModel
+class PacienteModel extends BaseModel
 {
-    private Database $db;
-
-    public function __construct()
-    {
-        $this->db = Database::getInstance();
-    }
-
-    /** Devuelve hasta 15 pacientes (listado inicial) */
     public function listar(): array
     {
-        return $this->db->query('SELECT * FROM paciente LIMIT 15')->fetchAll() ?: [];
-    }
-
-    /** Busca pacientes por nombre o apellidos (búsqueda LIKE) */
-    public function buscar(string $filtro): array
-    {
         return $this->db->query(
-            "SELECT * FROM paciente WHERE concat_ws(', ', apellidos, nombre) LIKE :filtro",
-            [':filtro' => '%' . $filtro . '%']
+            'SELECT * FROM paciente
+             WHERE dni <> ""
+             ORDER BY apellidos ASC, nombre ASC
+             LIMIT 15'
         )->fetchAll() ?: [];
     }
 
-    /** Obtiene un paciente por DNI. Devuelve null si no existe. */
+    public function buscar(string $filtro): array
+    {
+        return $this->db->query(
+            'SELECT *
+               FROM paciente
+              WHERE dni LIKE :dni
+                 OR nombre LIKE :texto
+                 OR apellidos LIKE :texto
+                 OR concat_ws(", ", apellidos, nombre) LIKE :texto
+              ORDER BY apellidos ASC, nombre ASC',
+            [
+                ':dni' => '%' . $filtro . '%',
+                ':texto' => '%' . $filtro . '%',
+            ]
+        )->fetchAll() ?: [];
+    }
+
     public function findByDni(string $dni): ?array
     {
         $row = $this->db->query(
@@ -45,10 +49,10 @@ class PacienteModel
             'INSERT INTO paciente(dni, nombre, apellidos, telefono, fecha_nac)
              VALUES (:dni, :nombre, :apellidos, :telefono, :fecha_nac)',
             [
-                ':dni'       => $paciente['dni'],
-                ':nombre'    => $paciente['nombre'],
+                ':dni' => $paciente['dni'],
+                ':nombre' => $paciente['nombre'],
                 ':apellidos' => $paciente['apellidos'],
-                ':telefono'  => $paciente['telefono'],
+                ':telefono' => $paciente['telefono'],
                 ':fecha_nac' => $paciente['fecha_nac'],
             ]
         );
@@ -59,16 +63,16 @@ class PacienteModel
     {
         $stmt = $this->db->query(
             'UPDATE paciente
-                SET nombre    = :nombre,
+                SET nombre = :nombre,
                     apellidos = :apellidos,
-                    telefono  = :telefono,
+                    telefono = :telefono,
                     fecha_nac = :fecha_nac
               WHERE dni = :dni',
             [
-                ':dni'       => $paciente['dni'],
-                ':nombre'    => $paciente['nombre'],
+                ':dni' => $paciente['dni'],
+                ':nombre' => $paciente['nombre'],
                 ':apellidos' => $paciente['apellidos'],
-                ':telefono'  => $paciente['telefono'],
+                ':telefono' => $paciente['telefono'],
                 ':fecha_nac' => $paciente['fecha_nac'],
             ]
         );

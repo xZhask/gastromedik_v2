@@ -3,115 +3,64 @@
 namespace App\Controllers;
 
 use App\Core\Auth;
+use App\Core\Base\BaseController;
 use App\Core\Request;
-use App\Core\Response;
-use App\Models\PersonalModel;
+use App\Services\PersonalService;
+use RuntimeException;
 
-class PersonalController
+class PersonalController extends BaseController
 {
-    private PersonalModel $personal;
+    private PersonalService $personal;
 
     public function __construct()
     {
-        $this->personal = new PersonalModel();
+        $this->personal = new PersonalService();
     }
 
-    /** GET /api/personal */
     public function index(Request $request): void
     {
         $cargo = (int) (Auth::user()['cargo'] ?? 0);
-        $filas = $this->personal->listar();
-
-        $data = array_map(fn($f) => [
-            'dni'    => $f['dni'],
-            'nombre' => $f['nombre'],
-            'nick'   => $f['nick'],
-            'cargo'  => $f['cargo'],
-            'estado' => $f['estado'],
-        ], $filas);
-
-        Response::json(['data' => $data, 'cargo' => $cargo]);
+        $this->json([
+            'data'  => $this->personal->listarUsuarios(),
+            'cargo' => $cargo,
+        ]);
     }
 
-    /** GET /api/personal/cargos */
     public function cargos(Request $request): void
     {
-        $filas = $this->personal->listarCargos();
-        $data  = array_map(fn($f) => [
-            'idcargo' => (int) $f['idcargo'],
-            'nombre'  => $f['nombre'],
-        ], $filas);
-        Response::json($data);
+        $this->json($this->personal->listarCargos());
     }
 
-    /** GET /api/personal/{dni} */
     public function show(Request $request): void
     {
-        $dni     = $request->param('dni') ?? $request->get('dni', '');
-        $usuario = $this->personal->findByDni($dni);
-
-        if ($usuario === null) {
-            Response::json(['error' => 'No registrado'], 404);
-        }
-
-        Response::json($usuario);
+        $dni = (string) ($request->param('dni') ?? $request->get('dni', ''));
+        $this->json($this->personal->obtenerUsuario($dni));
     }
 
-    /** POST /api/personal */
     public function store(Request $request): void
     {
-        $body = $request->json();
-
-        $this->personal->registrar([
-            'dni'       => $body['dni'] ?? '',
-            'nombre'    => $body['nombre'] ?? '',
-            'apellidos' => $body['apellidos'] ?? '',
-            'nick'      => $body['nick'] ?? '',
-            'pass'      => password_hash($body['pass'] ?? '', PASSWORD_BCRYPT),
-            'idcargo'   => $body['idcargo'] ?? '0',
-            'estado'    => $body['estado'] ?? 'ACTIVO',
-        ]);
-
-        Response::json(['message' => 'Usuario registrado'], 201);
+        $this->personal->registrarUsuario($request->json());
+        $this->json(['message' => 'Usuario registrado'], true, null, 201);
     }
 
-    /** PUT /api/personal/{dni} */
     public function update(Request $request): void
     {
-        $body = $request->json();
-
-        $this->personal->actualizar([
-            'dni'       => $request->param('dni') ?? ($body['dni'] ?? ''),
-            'nombre'    => $body['nombre'] ?? '',
-            'apellidos' => $body['apellidos'] ?? '',
-            'nick'      => $body['nick'] ?? '',
-            'idcargo'   => $body['idcargo'] ?? '0',
-            'estado'    => $body['estado'] ?? 'ACTIVO',
-        ]);
-
-        Response::json(['message' => 'Usuario actualizado']);
+        $this->personal->actualizarUsuario((string) ($request->param('dni') ?? ''), $request->json());
+        $this->json(['message' => 'Usuario actualizado']);
     }
 
-    /** POST /api/personal/cambiar-pass */
     public function cambiarPass(Request $request): void
     {
-        $body = $request->json();
-        $dni  = $body['dni'] ?? '';
-        $hash = password_hash($body['pass'] ?? '', PASSWORD_BCRYPT);
-
-        $this->personal->actualizarPassword($dni, $hash);
-        Response::json(['message' => 'Contrasena actualizada']);
+        $this->personal->cambiarPassword($request->json());
+        $this->json(['message' => 'Contrasena actualizada']);
     }
 
-    /** POST /api/personal/cargos */
     public function storeCargo(Request $request): void
     {
-        $body = $request->json();
-        $this->personal->registrarCargo($body['nombre'] ?? '');
-        Response::json(['message' => 'Cargo registrado'], 201);
+        $this->personal->registrarCargo($request->json());
+        $this->json(['message' => 'Cargo registrado'], true, null, 201);
     }
 
-    /** GET /api/personal/consulta-dni/{dni} */
     public function consultaDni(Request $request): void
     {
         $dni   = $request->param('dni') ?? '';
@@ -129,16 +78,17 @@ class PersonalController
 
         $response = curl_exec($curl);
         $err      = curl_error($curl);
+        curl_close($curl);
 
         if ($err) {
-            Response::json(['error' => 'cURL Error: ' . $err], 500);
+            throw new RuntimeException('Error al consultar servicio de DNI', 502);
         }
 
         $decoded = json_decode($response, true);
         if (!is_array($decoded)) {
-            Response::json(['error' => 'Respuesta invalida del servicio de DNI'], 502);
+            throw new RuntimeException('Respuesta invalida del servicio de DNI', 502);
         }
 
-        Response::json($decoded);
+        $this->json($decoded);
     }
 }

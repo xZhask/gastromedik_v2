@@ -1,5 +1,5 @@
 /**
- * views/hoy.js â€” Lista de atenciones del dÃ­a (sala de espera).
+ * views/hoy.js — Lista de atenciones del día (sala de espera).
  */
 
 import { api }        from '../utils/api.js'
@@ -7,76 +7,138 @@ import { toastOk, toastError } from '../utils/toast.js'
 import { icon, iconBtn } from '../utils/icons.js'
 import { openModal, closeModal } from '../components/modal.js'
 import { renderTable, wrapTable } from '../components/table.js'
+import { skeletonTable } from '../components/skeleton.js'
 
 const content = () => document.getElementById('app-content')
 const CARGO   = parseInt(document.querySelector('meta[name="user-cargo"]')?.content ?? '0')
 
 export async function HoyView() {
   content().innerHTML = `
-    <div class="cabecera">
-      <h2>Atenciones de Hoy</h2>
-      <button class="btn-secundario" id="btn-refresh-hoy" type="button">${icon('search')} Actualizar</button>
+    <div class="citas-header">
+      <div class="citas-header__top">
+        <div class="citas-header__title">
+          <h1>Sala de espera</h1>
+          <span class="gm-page-header__sub" id="hoy-fecha-label"></span>
+        </div>
+        <div class="citas-header__actions">
+          <button class="btn-secundario" id="btn-refresh-hoy" type="button">${icon('search')} Actualizar</button>
+        </div>
+      </div>
+      <div class="citas-stats" id="hoy-stats" hidden>
+        <div class="gm-stat gm-stat--azul">
+          <span class="gm-stat__label">En espera</span>
+          <span class="gm-stat__value" id="hoy-stat-espera">0</span>
+        </div>
+        <div class="gm-stat gm-stat--ambar">
+          <span class="gm-stat__label">En atención</span>
+          <span class="gm-stat__value" id="hoy-stat-atendiendo">0</span>
+        </div>
+        <div class="gm-stat gm-stat--verde">
+          <span class="gm-stat__label">Atendidas</span>
+          <span class="gm-stat__value" id="hoy-stat-atendidas">0</span>
+        </div>
+      </div>
     </div>
     <div id="tabla-hoy-wrap"></div>`
 
+  document.getElementById('hoy-fecha-label').textContent =
+    new Date().toLocaleDateString('es-PE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+
   await cargarHoy()
+  content().querySelector('#btn-refresh-hoy').onclick = cargarHoy
 
-  content().querySelector('#btn-refresh-hoy')?.addEventListener('click', cargarHoy)
-
-  content().addEventListener('click', async (e) => {
+  content().onclick = async (e) => {
     const btn = e.target.closest('[data-action]')
     if (!btn) return
     const tr         = btn.closest('tr')
     const idatencion = parseInt(tr?.dataset.id)
-    const idcita     = parseInt(tr?.dataset.cita ?? '0')
+    if (!idatencion) return
 
     if (btn.dataset.action === 'signos')   await abrirSignos(idatencion)
     if (btn.dataset.action === 'atender')  await abrirAtencion(idatencion)
     if (btn.dataset.action === 'archivo')  await abrirSubirPdf(idatencion)
-  })
+  }
 }
 
 async function cargarHoy() {
   const wrap = document.getElementById('tabla-hoy-wrap')
   if (!wrap) return
-  wrap.innerHTML = `<div class="state-loading"><div class="spinner"></div></div>`
+  wrap.innerHTML = skeletonTable(5, 5)
 
   try {
     const { data } = await api.get('/api/citas/confirmadas')
 
+    // Stats
+    const stats = document.getElementById('hoy-stats')
+    if (data.length) {
+      stats.hidden = false
+      let espera = 0, prog = 0, fin = 0
+      data.forEach(r => {
+        if (r.atencion_estado === 'FINALIZADO') fin++
+        else if (r.atencion_estado === 'EN PROGR' || r.atencion_estado === 'INICIADO') prog++
+        else espera++
+      })
+      document.getElementById('hoy-stat-espera').textContent      = espera
+      document.getElementById('hoy-stat-atendiendo').textContent  = prog
+      document.getElementById('hoy-stat-atendidas').textContent   = fin
+    } else {
+      stats.hidden = true
+    }
+
     if (!data.length) {
-      wrap.innerHTML = `<div class="state-empty">No hay atenciones confirmadas para hoy.</div>`
+      wrap.innerHTML = `
+        <div class="gm-empty">
+          <div class="gm-empty__icon">${icon('today')}</div>
+          <p class="gm-empty__text">No hay atenciones confirmadas para hoy.</p>
+        </div>`
       return
     }
 
-    const rows = data.map(r => ({ ...r, _id: r.idatencion, 'data-cita': r.idcita }))
+    const rows = data.map(r => ({ ...r, _id: r.idatencion }))
 
     wrap.innerHTML = wrapTable(renderTable({
       columns: [
-        { key: 'horario',  label: 'Horario',    align: 'center' },
-        { key: 'paciente', label: 'Paciente' },
-        { key: 'motivo',   label: 'Motivo' },
+        { label: 'Hora', align: 'center', render: r => `<span class="cita-hora">${(r.horario || '').slice(0, 5)}</span>` },
         {
-          label: 'Signos Vitales', align: 'center',
+          label: 'Paciente',
+          render: r => `
+            <div class="pac-cell">
+              <div class="gm-avatar">${(r.paciente || '·').split(' ').map(p => p[0]).slice(0,2).join('').toUpperCase()}</div>
+              <div class="pac-cell__info">
+                <span class="pac-cell__name">${r.paciente ?? '—'}</span>
+                <span class="pac-cell__meta">${r.motivo ?? 'Sin motivo'}</span>
+              </div>
+            </div>`,
+        },
+        {
+          label: 'Estado', align: 'center',
+          render: r => {
+            if (r.atencion_estado === 'FINALIZADO') return '<span class="badge badge-verde">Atendido</span>'
+            if (r.atencion_estado === 'EN PROGR' || r.atencion_estado === 'INICIADO') return '<span class="badge badge-azul">En atención</span>'
+            return '<span class="badge badge-gris">En espera</span>'
+          },
+        },
+        {
+          label: 'Signos',
+          align: 'center',
           render: () => iconBtn('heartbeat', 'signos', 'Registrar signos vitales', 'icon-verde'),
         },
         ...([1,2].includes(CARGO) ? [{
-          label: 'AtenciÃ³n', align: 'center',
+          label: 'Atención', align: 'center',
           render: r => r.es_consulta || r.atencion_estado === 'EN PROGR'
-            ? iconBtn('calendar', 'atender', 'Registrar atenciÃ³n', 'icon-azul')
+            ? iconBtn('calendar', 'atender', 'Registrar atención', 'icon-azul')
             : iconBtn('pdf', 'archivo', 'Subir archivo', 'icon-ocre'),
         }] : []),
       ],
       rows,
       rowClass: r => r.tiene_pendientes ? 'tr-pendiente' : '',
-      emptyMsg: 'No hay atenciones pendientes.',
     }))
   } catch (err) {
     wrap.innerHTML = `<div class="state-error">${err.message}</div>`
   }
 }
 
-// â”€â”€ Signos Vitales â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Signos Vitales ────────────────────────────────────────────────────────────
 
 async function abrirSignos(idatencion) {
   let signos = null
@@ -85,25 +147,30 @@ async function abrirSignos(idatencion) {
     signos = r.data
   } catch { /* sin signos previos */ }
 
+  const campo = (name, label, unit, value) => `
+    <div class="signo-edit-card">
+      <div class="signo-edit-card__label">${label}</div>
+      <input type="text" name="${name}" value="${value ?? ''}" class="signo-edit-card__input" autocomplete="off" />
+      <div class="signo-edit-card__unit">${unit}</div>
+    </div>`
+
   const html = `
-    <h2 class="modal-title">Signos Vitales</h2>
+    <h2 class="modal-title">Signos vitales</h2>
+    <p class="muted" style="margin-top:-12px;margin-bottom:18px;font-size:.82rem;">
+      Registre los valores tomados al ingreso del paciente.
+    </p>
     <form id="form-signos" novalidate>
-      <div class="cont-group cols3">
-        <div class="cont-control"><label>FC (frec. cardÃ­aca)</label>
-          <input type="text" name="fc"   value="${signos?.fr   ?? ''}" /></div>
-        <div class="cont-control"><label>PA (presiÃ³n arterial)</label>
-          <input type="text" name="pa"   value="${signos?.pa   ?? ''}" /></div>
-        <div class="cont-control"><label>TÂ° (temperatura)</label>
-          <input type="text" name="temp" value="${signos?.temp ?? ''}" /></div>
-        <div class="cont-control"><label>So2 (saturaciÃ³n)</label>
-          <input type="text" name="so2"  value="${signos?.so2  ?? ''}" /></div>
-        <div class="cont-control"><label>Peso (kg)</label>
-          <input type="text" name="peso" value="${signos?.peso ?? ''}" /></div>
+      <div class="signos-edit-grid">
+        ${campo('fc',   'FC',   'lpm',   signos?.fr)}
+        ${campo('pa',   'PA',   'mmHg',  signos?.pa)}
+        ${campo('temp', 'T°',   '°C',    signos?.temp)}
+        ${campo('so2',  'SO₂',  '%',     signos?.so2)}
+        ${campo('peso', 'Peso', 'kg',    signos?.peso)}
       </div>
       <input type="hidden" name="idatencion" value="${idatencion}" />
-      <div style="display:flex;gap:8px;margin-top:12px;">
-        <button type="submit" class="btn-primario">${signos ? 'Actualizar' : 'Registrar'} Signos</button>
+      <div class="form-pac__actions">
         <button type="button" class="btn-secundario btn-cancelar" id="btn-cancel-signos">Cancelar</button>
+        <button type="submit" class="btn-primario">${signos ? 'Actualizar signos' : 'Registrar signos'}</button>
       </div>
     </form>`
 
@@ -121,16 +188,13 @@ async function abrirSignos(idatencion) {
   })
 }
 
-// â”€â”€ Registro de AtenciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Registro de Atención ──────────────────────────────────────────────────────
 
 async function abrirAtencion(idatencion) {
   let atencion = null
   let ant      = null
   try {
-    const [ra, rn] = await Promise.all([
-      api.get(`/api/atenciones/${idatencion}`),
-      api.get('/api/atenciones/antecedentes', { dni: '' }), // se actualizarÃ¡ con el dni
-    ])
+    const ra = await api.get(`/api/atenciones/${idatencion}`)
     atencion = ra.data
     if (atencion?.dni) {
       const rAnt = await api.get('/api/atenciones/antecedentes', { dni: atencion.dni })
@@ -138,81 +202,134 @@ async function abrirAtencion(idatencion) {
     }
   } catch { /* continuar sin datos previos */ }
 
-  const checks = (name, label, val) => `
-    <div class="group-radios">
-      <label>${label}:</label>
-      <div class="radio"><input type="radio" name="${name}" value="SI" ${val === 'SI' ? 'checked' : ''}><label>SI</label></div>
-      <div class="radio"><input type="radio" name="${name}" value="NO" ${val !== 'SI' ? 'checked' : ''}><label>NO</label></div>
+  const chip = (name, label, current) => `
+    <label class="ant-chip ${current === 'SI' ? 'ant-chip--on' : ''}">
+      <input type="checkbox" name="${name}" value="SI" ${current === 'SI' ? 'checked' : ''} />
+      <span class="ant-chip__icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </span>
+      <span>${label}</span>
+    </label>`
+
+  const soapCard = (name, title, hint, value, rows = 4) => `
+    <div class="soap-edit-card" id="soap-${name}">
+      <div class="soap-edit-card__head">
+        <h4>${title}</h4>
+        <span class="soap-edit-card__hint">${hint}</span>
+      </div>
+      <textarea name="${name}" rows="${rows}" placeholder="${hint}">${value ?? ''}</textarea>
     </div>`
 
+  const signosHtml = ['fr','pa','temp','so2','peso']
+    .map(k => {
+      const labels = { fr:'FC', pa:'PA', temp:'T°', so2:'SO₂', peso:'Peso' }
+      const units  = { fr:'lpm', pa:'mmHg', temp:'°C', so2:'%', peso:'kg' }
+      const v = atencion?.[k]
+      return `
+        <div class="signo-card">
+          <div class="signo-card__label">${labels[k]}</div>
+          <div class="signo-card__value">${v && v !== '-' ? escapeHtmlLocal(v) : '—'}<span class="signo-card__unit">${units[k]}</span></div>
+        </div>`
+    }).join('')
+
   const html = `
-    <div id="nombre-atencion" style="font-weight:700;padding:10px 14px;background:var(--gris-light);border-radius:6px;border-left:3px solid var(--azul);margin-bottom:16px;">
-      ${atencion?.paciente ?? 'â€”'}<br/>
-      <span style="font-size:.8rem;font-weight:400;color:var(--gris-dark)">DNI: ${atencion?.dni ?? 'â€”'} | Edad: ${atencion?.edad ?? 'â€”'} aÃ±os</span>
-    </div>
-    <form id="form-atencion" novalidate>
-      <input type="hidden" name="idatencion" value="${idatencion}" />
-      <input type="hidden" name="dni"        value="${atencion?.dni ?? ''}" />
-      <input type="hidden" name="typeAction" value="REGISTRAR" />
-
-      <fieldset><legend>Signos vitales (solo lectura)</legend>
-        <div class="cont-group cols3" style="gap:8px;">
-          ${['fr','pa','temp','so2','peso'].map(k => `<div style="font-size:.85rem;padding:6px;background:var(--gris-light);border-radius:4px;text-align:center;"><b>${k.toUpperCase()}</b><br/>${atencion?.[k] ?? 'â€”'}</div>`).join('')}
+    <div class="aten-modal">
+      <header class="aten-modal__head">
+        <div class="gm-avatar gm-avatar--lg">${inicialesAten(atencion?.paciente)}</div>
+        <div>
+          <h2 class="hist-head__name">${escapeHtmlLocal(atencion?.paciente ?? '—')}</h2>
+          <p class="hist-head__meta">DNI ${escapeHtmlLocal(atencion?.dni ?? '—')} · ${atencion?.edad ?? '—'} años</p>
         </div>
-      </fieldset>
+      </header>
 
-      <fieldset><legend>Antecedentes generales</legend>
-        ${checks('hta','HTA',    ant?.HTA)}
-        ${checks('dm', 'DM',     ant?.DM)}
-        ${checks('hiv','HIV',    ant?.HIV)}
-        ${checks('hep','Hepatitis', ant?.HEPATITIS)}
-        <div class="cont-control"><label>Alergias</label>
-          <input type="text" name="alergias" value="${ant?.ALERGIAS ?? '-'}" /></div>
-        <div class="cont-group">
-          <div class="cont-control"><label>CirugÃ­as</label>
-            <input type="text" name="cirugias" value="${ant?.CIRUGIAS ?? '-'}" /></div>
-          <div class="cont-control"><label>EndoscopÃ­as</label>
-            <input type="text" name="endoscopias" value="${ant?.ENDOSCOPIAS ?? '-'}" /></div>
-        </div>
-        ${checks('covid','COVID', ant?.COVID)}
-      </fieldset>
+      <div class="aten-modal__body">
 
-      <fieldset><legend>Consulta</legend>
-        <div class="cont-group">
-          <div class="cont-control"><label>Molestia Principal</label>
-            <textarea name="molestia" rows="3">${atencion?.motivoconsulta ?? ''}</textarea></div>
-          <div class="cont-control"><label>Antecedentes</label>
-            <textarea name="antecedentes" rows="3">${atencion?.antecedente ?? ''}</textarea></div>
-        </div>
-        <div class="cont-group">
-          <div class="cont-control"><label>Anamnesis</label>
-            <textarea name="anamnesis" rows="5">${atencion?.anamensis ?? ''}</textarea></div>
-          <div class="cont-control"><label>Examen FÃ­sico</label>
-            <textarea name="examen_fisico" rows="5">${atencion?.exfisico ?? ''}</textarea></div>
-          <div class="cont-control"><label>DiagnÃ³stico</label>
-            <textarea name="diagnostico" rows="5">${atencion?.diagnostico ?? ''}</textarea></div>
-          <div class="cont-control"><label>Tratamiento</label>
-            <textarea name="tratamiento" rows="5">${atencion?.tratamiento ?? ''}</textarea></div>
-        </div>
-      </fieldset>
+        <aside class="aten-modal__nav">
+          <a href="#soap-signos">Signos vitales</a>
+          <a href="#soap-ant">Antecedentes</a>
+          <a href="#soap-molestia">Consulta</a>
+        </aside>
 
-      <div style="display:flex;gap:8px;margin-top:12px;">
-        <button type="submit" class="btn-primario" id="btn-guardar-aten">Registrar AtenciÃ³n</button>
-        <button type="button" class="btn-secundario btn-cancelar" id="btn-cancel-aten">Cancelar</button>
+        <form id="form-atencion" class="aten-modal__form" novalidate>
+          <input type="hidden" name="idatencion" value="${idatencion}" />
+          <input type="hidden" name="dni"        value="${atencion?.dni ?? ''}" />
+          <input type="hidden" name="typeAction" value="REGISTRAR" />
+
+          <section class="aten-section" id="soap-signos">
+            <h3 class="aten-section__title">Signos vitales registrados</h3>
+            <div class="signos-grid">${signosHtml}</div>
+          </section>
+
+          <section class="aten-section" id="soap-ant">
+            <h3 class="aten-section__title">Antecedentes</h3>
+
+            <div class="ant-chips">
+              ${chip('hta',   'HTA',       ant?.HTA)}
+              ${chip('dm',    'DM',        ant?.DM)}
+              ${chip('hiv',   'HIV',       ant?.HIV)}
+              ${chip('hep',   'Hepatitis', ant?.HEPATITIS)}
+              ${chip('covid', 'COVID',     ant?.COVID)}
+            </div>
+
+            <div class="cont-group">
+              <div class="cont-control">
+                <label>Alergias</label>
+                <input type="text" name="alergias" value="${ant?.ALERGIAS ?? '-'}" />
+              </div>
+              <div class="cont-control">
+                <label>Cirugías</label>
+                <input type="text" name="cirugias" value="${ant?.CIRUGIAS ?? '-'}" />
+              </div>
+              <div class="cont-control" style="grid-column: 1 / -1;">
+                <label>Endoscopías previas</label>
+                <input type="text" name="endoscopias" value="${ant?.ENDOSCOPIAS ?? '-'}" />
+              </div>
+            </div>
+          </section>
+
+          <section class="aten-section">
+            <h3 class="aten-section__title">Consulta</h3>
+            ${soapCard('molestia',     'Molestia principal',  'Síntoma o queja que motivó la consulta', atencion?.motivoconsulta, 3)}
+            ${soapCard('antecedentes', 'Antecedentes (HEA)',  'Historia de la enfermedad actual',       atencion?.antecedente,    3)}
+            ${soapCard('anamnesis',    'Anamnesis',           'Detalle del relato del paciente',         atencion?.anamensis,      5)}
+            ${soapCard('examen_fisico','Examen físico',       'Hallazgos a la exploración',              atencion?.exfisico,       5)}
+            ${soapCard('diagnostico',  'Diagnóstico',         'Impresión diagnóstica',                   atencion?.diagnostico,    4)}
+            ${soapCard('tratamiento',  'Tratamiento',         'Plan terapéutico y recomendaciones',      atencion?.tratamiento,    5)}
+          </section>
+
+        </form>
       </div>
-    </form>`
 
-  openModal(html, { wide: true })
+      <footer class="aten-modal__foot">
+        <button type="button" class="btn-secundario btn-cancelar" id="btn-cancel-aten">Cancelar</button>
+        <button type="submit" form="form-atencion" class="btn-primario" id="btn-guardar-aten">Registrar atención</button>
+      </footer>
+    </div>`
+
+  openModal(html, { size: 'xl' })
+
+  document.querySelectorAll('.ant-chip input').forEach(inp => {
+    inp.addEventListener('change', e => {
+      e.target.closest('.ant-chip').classList.toggle('ant-chip--on', e.target.checked)
+    })
+  })
+
   document.getElementById('btn-cancel-aten').addEventListener('click', closeModal)
 
   document.getElementById('form-atencion').addEventListener('submit', async (e) => {
     e.preventDefault()
     const btn  = document.getElementById('btn-guardar-aten')
     btn.disabled = true
-    const body = Object.fromEntries(new FormData(e.target).entries())
+
+    const fd = new FormData(e.target)
+    const body = Object.fromEntries(fd.entries())
+    ;['hta','dm','hiv','hep','covid'].forEach(k => {
+      body[k] = fd.get(k) === 'SI' ? 'SI' : 'NO'
+    })
+
     try {
       await api.post('/api/atenciones/guardar', body)
-      toastOk('AtenciÃ³n registrada.')
+      toastOk('Atención registrada.')
       closeModal()
       cargarHoy()
     } catch (err) {
@@ -222,8 +339,19 @@ async function abrirAtencion(idatencion) {
   })
 }
 
+function inicialesAten(nombreCompleto = '') {
+  const p = (nombreCompleto || '').trim().split(/\s+/)
+  return ((p[0]?.[0] ?? '') + (p[1]?.[0] ?? '')).toUpperCase() || '·'
+}
+
+function escapeHtmlLocal(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]))
+}
+
 async function abrirSubirPdf(idatencion) {
-  // Obtener DNI del paciente desde la atenciÃ³n
+  // Obtener DNI del paciente desde la atención
   let dni = ''
   try {
     const r = await api.get(`/api/atenciones/${idatencion}`)
@@ -232,7 +360,7 @@ async function abrirSubirPdf(idatencion) {
     toastError('No se pudo obtener los datos del paciente.')
     return
   }
-  if (!dni) { toastError('No se encontrÃ³ el DNI del paciente.'); return }
+  if (!dni) { toastError('No se encontró el DNI del paciente.'); return }
 
   const html = `
     <h2 class="modal-title">Cargar PDF</h2>
@@ -298,3 +426,4 @@ async function abrirSubirPdf(idatencion) {
     }
   })
 }
+

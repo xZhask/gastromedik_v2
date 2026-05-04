@@ -7,8 +7,13 @@ class Response
     {
         [$payload, $error, $meta] = self::normalizePayload($data, $statusCode);
 
+        // Descarta cualquier salida previa (warnings/notices en modo debug) para no corromper el JSON
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
         http_response_code($statusCode);
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=UTF-8');
         $response = [
             'success' => $statusCode >= 200 && $statusCode < 300,
             'data'    => $payload,
@@ -19,7 +24,7 @@ class Response
             $response['meta'] = $meta;
         }
 
-        echo json_encode($response);
+        echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         exit;
     }
 
@@ -33,7 +38,25 @@ class Response
             self::json(['error' => "Vista no encontrada: {$view}"], 404);
         }
 
+        header('Content-Type: text/html; charset=UTF-8');
         require $path;
+        exit;
+    }
+
+    public static function validationError(array $errors): void
+    {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        http_response_code(422);
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode([
+            'success' => false,
+            'data'    => [],
+            'error'   => 'Datos de entrada inválidos.',
+            'errors'  => $errors,
+        ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
         exit;
     }
 

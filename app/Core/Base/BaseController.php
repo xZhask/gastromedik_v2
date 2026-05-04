@@ -16,8 +16,14 @@ class BaseController
                 $payload['data'] = $data;
             }
             Response::json($payload, $statusCode);
+            return;
         }
 
         Response::json($data, $statusCode);
+    }
+
+    protected function noContent(): void
+    {
+        Response::noContent();
     }
 }

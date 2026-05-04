@@ -1,0 +1,61 @@
+<div class="cabecera">
+  <h2>Reportes</h2>
+  <div class="cont-groupbotones Controls-Reporte">
+    <div class="radio">
+      <input
+        type="radio"
+        name="tipomovimiento"
+        id="ingreso"
+        value="INGRESO"
+        checked
+      />
+      <label for="ingreso">INGRESOS</label>
+      <input type="radio" name="tipomovimiento" id="salida" value="GASTO" />
+      <label for="salida">GASTOS</label>
+    </div>
+    <label for="ReporteDesde">Desde :</label>
+    <div class="cont-control">
+      <input type="date" name="ReporteDesde" id="ReporteDesde" />
+    </div>
+    <label for="ReporteHasta">Hasta :</label>
+    <div class="cont-control">
+      <input type="date" name="ReporteHasta" id="ReporteHasta" />
+    </div>
+    <button class="btn-secundario" type="button" onclick="Reporte()">
+      Generar
+    </button>
+  </div>
+</div>
+<div class="cont-totales">
+  <div class="cont-labels">
+    <label id="lbltotal" class="lbltotales">MONTO TOTAL: S/. 0</label>
+    <label id="lbltotalEfectivo" class="lbltotales">EFECTIVO: S/. 0</label>
+    <label id="lbltotalTransf" class="lbltotales">TRANSF.: S/. 0</label>
+    <label id="lbltotalPos" class="lbltotales">POS: S/. 0</label>
+    <label id="lbltotalYape" class="lbltotales">YAPE: S/. 0</label>
+  </div>
+  <i class="far fa-file-pdf" onclick="generarPDFReporte()"></i>
+</div>
+<div class="cont-tabla">
+  <table>
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Nombre de Paciente</th>
+        <th>Descripción</th>
+        <th>Monto</th>
+        <th>Tipo Pago</th>
+        <th>Usuario</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tbReporte">
+      <!-- AJAX -->
+    </tbody>
+    <tfoot></tfoot>
+  </table>
+</div>
+<script>
+  ReporteDesde.max = new Date().toISOString().split('T')[0]
+  ReporteHasta.max = new Date().toISOString().split('T')[0]
+</script>

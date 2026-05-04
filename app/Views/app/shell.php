@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/css/estilos.css" />
+  <link rel="stylesheet" href="/assets/css/estilos.css?v=<?= filemtime(PUBLIC_PATH . '/assets/css/estilos.css') ?>" />
   <!-- Tipos de pago disponibles para el módulo de caja -->
   <script>
     window.__TIPOS_PAGO__ = <?= json_encode($tiposPago, JSON_UNESCAPED_UNICODE) ?>;
@@ -99,6 +99,6 @@
   <!-- TOAST -->
   <div id="toast-container" aria-live="polite"></div>
 
-  <script type="module" src="/assets/js/app.js"></script>
+  <script type="module" src="/assets/js/app.js?v=<?= filemtime(PUBLIC_PATH . '/assets/js/app.js') ?>"></script>
 </body>
 </html>
