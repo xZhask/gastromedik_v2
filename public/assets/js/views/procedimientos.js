@@ -8,18 +8,26 @@ import { icon, iconBtn } from '../utils/icons.js'
 import { openModal, closeModal } from '../components/modal.js'
 import { confirm }    from '../components/confirm.js'
 import { renderTable, wrapTable } from '../components/table.js'
+import { skeletonTable } from '../components/skeleton.js'
 
 const content = () => document.getElementById('app-content')
 
 export async function ProcedimientosView() {
   content().innerHTML = `
-    <div class="cabecera">
-      <h2>Procedimientos</h2>
-      <div class="cont-busqueda">
-        <input type="text" id="q-proc" placeholder="Buscar procedimiento..." autocomplete="off" />
-        <button class="icon-btn" id="btn-buscar-proc" type="button">${icon('search')}</button>
+    <div class="citas-header">
+      <div class="citas-header__top">
+        <div class="citas-header__title">
+          <h1>Procedimientos</h1>
+          <span class="gm-page-header__sub" id="proc-sub"></span>
+        </div>
+        <div class="citas-header__actions">
+          <div class="cont-busqueda">
+            <input type="text" id="q-proc" placeholder="Buscar procedimiento..." autocomplete="off" />
+            <button class="icon-btn" id="btn-buscar-proc" type="button">${icon('search')}</button>
+          </div>
+          <button class="btn-secundario" id="btn-nuevo-proc" type="button">${icon('plus')} Nuevo</button>
+        </div>
       </div>
-      <button class="btn-secundario" id="btn-nuevo-proc" type="button">${icon('plus')} Nuevo</button>
     </div>
     <div id="tabla-proc-wrap"></div>`
 
@@ -30,10 +38,19 @@ export async function ProcedimientosView() {
 async function cargar() {
   const wrap = document.getElementById('tabla-proc-wrap')
   if (!wrap) return
-  wrap.innerHTML = `<div class="state-loading"><div class="spinner"></div></div>`
+  wrap.innerHTML = skeletonTable(5, 5)
   try {
     const q = document.getElementById('q-proc')?.value ?? ''
     const { data } = await api.get('/api/procedimientos', q ? { q } : {})
+    document.getElementById('proc-sub').textContent = `${data.length} procedimientos definidos`
+    if (!data.length) {
+      wrap.innerHTML = `
+        <div class="gm-empty">
+          <div class="gm-empty__icon">${icon('procedure')}</div>
+          <p class="gm-empty__text">No se encontraron procedimientos.</p>
+        </div>`
+      return
+    }
     wrap.innerHTML = wrapTable(renderTable({
       columns: [
         { key: 'idtipoatencion', label: 'Código',    align: 'center' },
@@ -43,7 +60,6 @@ async function cargar() {
         { label: 'Eliminar',     align: 'center',    render: () => iconBtn('trash', 'eliminar', 'Eliminar', 'icon-danger') },
       ],
       rows: data.map(p => ({ ...p, _id: p.idtipoatencion })),
-      emptyMsg: 'No se encontraron procedimientos.',
     }))
   } catch (err) {
     wrap.innerHTML = `<div class="state-error">${err.message}</div>`

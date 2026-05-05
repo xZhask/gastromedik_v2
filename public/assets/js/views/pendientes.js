@@ -6,12 +6,20 @@ import { toastOk, toastError } from '../utils/toast.js'
 import { icon }       from '../utils/icons.js'
 import { openModal, closeModal } from '../components/modal.js'
 import { renderTable, wrapTable } from '../components/table.js'
+import { skeletonTable } from '../components/skeleton.js'
 
 const content = () => document.getElementById('app-content')
 
 export async function PendientesView() {
   content().innerHTML = `
-    <div class="cabecera"><h2>Pagos Pendientes</h2></div>
+    <div class="citas-header">
+      <div class="citas-header__top">
+        <div class="citas-header__title">
+          <h1>Pagos pendientes</h1>
+          <span class="gm-page-header__sub" id="pend-sub"></span>
+        </div>
+      </div>
+    </div>
     <div id="tabla-pend-wrap"></div>`
   await cargar()
   bindEventos()
@@ -20,15 +28,33 @@ export async function PendientesView() {
 async function cargar() {
   const wrap = document.getElementById('tabla-pend-wrap')
   if (!wrap) return
-  wrap.innerHTML = `<div class="state-loading"><div class="spinner"></div></div>`
+  wrap.innerHTML = skeletonTable(5, 6)
   try {
     const { data } = await api.get('/api/citas/pendientes')
+    document.getElementById('pend-sub').textContent = `${data.length} pacientes con saldo`
+    if (!data.length) {
+      wrap.innerHTML = `
+        <div class="gm-empty">
+          <div class="gm-empty__icon">${icon('pending')}</div>
+          <p class="gm-empty__text">No hay pagos pendientes.</p>
+        </div>`
+      return
+    }
     wrap.innerHTML = wrapTable(renderTable({
       columns: [
         { key: 'fecha',    label: 'Fecha',    align: 'center' },
         { key: 'horario',  label: 'Hora',     align: 'center' },
-        { key: 'paciente', label: 'Paciente' },
-        { key: 'motivo',   label: 'Motivo' },
+        {
+          label: 'Paciente',
+          render: r => `
+            <div class="pac-cell">
+              <div class="gm-avatar">${(r.paciente || '·').split(' ').map(p => p[0]).slice(0,2).join('').toUpperCase()}</div>
+              <div class="pac-cell__info">
+                <span class="pac-cell__name">${r.paciente ?? '—'}</span>
+                <span class="pac-cell__meta">${r.motivo ?? 'Sin motivo'}</span>
+              </div>
+            </div>`,
+        },
         { key: 'telefono', label: 'Celular',  align: 'center' },
         {
           label: 'Pago', align: 'center',
@@ -38,7 +64,6 @@ async function cargar() {
         },
       ],
       rows: data.map(c => ({ ...c, _id: c.idcita })),
-      emptyMsg: 'No hay pagos pendientes.',
     }))
   } catch (err) {
     wrap.innerHTML = `<div class="state-error">${err.message}</div>`
@@ -154,6 +179,15 @@ async function abrirPago(idcita) {
       toastOk('Pago registrado.')
       closeModal()
       cargar()
+
+      if (confirm('Pago registrado correctamente. ¿Deseas imprimir el ticket ahora?')) {
+        try {
+          await api.post(`/pos/ticket/${idcita}/print`, {})
+          toastOk('Ticket impreso correctamente.')
+        } catch (printErr) {
+          toastError('No se pudo imprimir el ticket: ' + printErr.message)
+        }
+      }
     } catch (err) { toastError(err.message) }
   })
 }

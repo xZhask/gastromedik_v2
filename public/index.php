@@ -28,6 +28,9 @@ define('CONFIG_PATH',  BASE_PATH . '/config');
 define('STORAGE_PATH', BASE_PATH . '/storage');
 define('PUBLIC_PATH',  __DIR__);
 
+// ── Helpers globales (config, env) ───────────────────────────────────────────
+require_once APP_PATH . '/helpers.php';
+
 // ── Autoloader ────────────────────────────────────────────────────────────────
 require_once BASE_PATH . '/vendor/autoload.php';
 

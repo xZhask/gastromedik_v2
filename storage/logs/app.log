@@ -1,2 +1,5 @@
 [2026-05-04 17:37:46] INFO: Cita registrada {"idcita":19659,"dni":"48193845"}
 [2026-05-04 17:39:22] INFO: Cita registrada {"idcita":19660,"dni":"48193845"}
+[2026-05-04 21:38:27] INFO: Atencion guardada {"idatencion":19761,"dni":"48193845"}
+[2026-05-05 00:06:09] INFO: PDF de examen guardado {"dni":"48193845","nombre":"examen"}
+[2026-05-05 00:24:17] INFO: Cita actualizada {"idcita":19659,"dni":"48193845"}

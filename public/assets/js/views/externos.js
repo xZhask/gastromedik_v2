@@ -7,6 +7,7 @@ import { icon, iconBtn } from '../utils/icons.js'
 import { openModal, closeModal } from '../components/modal.js'
 import { confirm }    from '../components/confirm.js'
 import { renderTable, wrapTable } from '../components/table.js'
+import { skeletonTable } from '../components/skeleton.js'
 
 const content = () => document.getElementById('app-content')
 let ESTABLECIMIENTOS = []
@@ -15,25 +16,32 @@ let PROCEDIMIENTOS   = []
 export async function ExternosView() {
   const hoy = new Date().toISOString().split('T')[0]
   content().innerHTML = `
-    <div class="cabecera">
-      <h2>Procedimientos Externos</h2>
-      <div class="cont-groupbotones controls-externos">
-        <div class="cont-control" style="margin:0;display:flex;align-items:center;gap:6px;">
-          <label style="white-space:nowrap;">De:</label>
-          <input type="date" id="ext-desde" value="${hoy}" />
+    <div class="citas-header">
+      <div class="citas-header__top">
+        <div class="citas-header__title">
+          <h1>Procedimientos externos</h1>
+          <span class="gm-page-header__sub" id="ext-sub"></span>
         </div>
-        <div class="cont-control" style="margin:0;display:flex;align-items:center;gap:6px;">
-          <label style="white-space:nowrap;">a:</label>
-          <input type="date" id="ext-hasta" value="${hoy}" />
-        </div>
-        <div class="cont-control" style="margin:0;">
-          <select id="ext-estab"></select>
+        <div class="citas-header__actions">
+          <button class="btn-secundario" id="btn-nueva-ext"  type="button">Nueva Cita</button>
+          <button class="btn-secundario" id="btn-nuevo-estab" type="button">N. Establecimiento</button>
+          <a id="btn-pdf-ext" href="#" target="_blank" class="btn-secundario">${icon('pdf')} PDF</a>
         </div>
       </div>
-      <div class="cont-groupbotones">
-        <button class="btn-secundario" id="btn-nueva-ext"  type="button">Nueva Cita</button>
-        <button class="btn-secundario" id="btn-nuevo-estab" type="button">N. Establecimiento</button>
-        <a id="btn-pdf-ext" href="#" target="_blank" class="btn-secundario">${icon('pdf')} PDF</a>
+      <div class="citas-header__filters">
+        <div class="cont-groupbotones controls-externos">
+          <div class="cont-control" style="margin:0;display:flex;align-items:center;gap:6px;">
+            <label style="white-space:nowrap;">De:</label>
+            <input type="date" id="ext-desde" value="${hoy}" />
+          </div>
+          <div class="cont-control" style="margin:0;display:flex;align-items:center;gap:6px;">
+            <label style="white-space:nowrap;">a:</label>
+            <input type="date" id="ext-hasta" value="${hoy}" />
+          </div>
+          <div class="cont-control" style="margin:0;">
+            <select id="ext-estab"></select>
+          </div>
+        </div>
       </div>
     </div>
     <div id="lbl-total-ext" class="cont-totales" style="margin-bottom:12px;"></div>
@@ -57,7 +65,7 @@ export async function ExternosView() {
 
 async function cargar() {
   const wrap  = document.getElementById('tabla-ext-wrap')
-  wrap.innerHTML = `<div class="state-loading"><div class="spinner"></div></div>`
+  wrap.innerHTML = skeletonTable(5, 7)
   const params = {
     fecha1:          document.getElementById('ext-desde')?.value ?? '',
     fecha2:          document.getElementById('ext-hasta')?.value ?? '',
@@ -66,9 +74,19 @@ async function cargar() {
   try {
     const { data } = await api.get('/api/citas/externas', params)
     const total = data.filter(r => r.estado !== 'ANULADO').reduce((s, r) => s + parseFloat(r.precio ?? 0), 0)
+    document.getElementById('ext-sub').textContent = `${params.fecha1} - ${params.fecha2}`
     document.getElementById('lbl-total-ext').innerHTML =
       `<span class="lbltotales">Monto Total: S/. ${total.toFixed(2)}</span>` +
       `<a href="/pdf/reportes/externos?fecha1=${params.fecha1}&fecha2=${params.fecha2}&establecimiento=${params.establecimiento}" target="_blank" class="btn-exportar">${icon('pdf')}</a>`
+
+    if (!data.length) {
+      wrap.innerHTML = `
+        <div class="gm-empty">
+          <div class="gm-empty__icon">${icon('external')}</div>
+          <p class="gm-empty__text">Sin citas externas en el período.</p>
+        </div>`
+      return
+    }
 
     wrap.innerHTML = wrapTable(renderTable({
       columns: [
@@ -86,7 +104,6 @@ async function cargar() {
         },
       ],
       rows: data.map(r => ({ ...r, _id: r.idtrabajoexterno })),
-      emptyMsg: 'Sin citas externas en el período.',
     }))
   } catch (err) {
     wrap.innerHTML = `<div class="state-error">${err.message}</div>`

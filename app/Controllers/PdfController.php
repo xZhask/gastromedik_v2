@@ -118,9 +118,23 @@ class PdfController
 
     private function streamPdf(string $html, string $filename, array $config): void
     {
+        // Crear carpeta temporal
+        $tempDir = STORAGE_PATH . DIRECTORY_SEPARATOR . 'pdf-temp';
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0777, true);
+        }
+        
+        $config['tempDir'] = $tempDir;
+        $config['allow_remote_files'] = false;
+
         $mpdf = new Mpdf($config);
         $mpdf->WriteHTML($this->pdfCss(), HTMLParserMode::HEADER_CSS);
         $mpdf->WriteHTML($html, HTMLParserMode::HTML_BODY);
+
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
         $mpdf->Output($filename, 'I');
         exit;
     }
@@ -303,12 +317,51 @@ class PdfController
     private function pdfCss(): string
     {
         $path = PUBLIC_PATH . '/assets/css/estilos.css';
-        return is_file($path) ? (string) file_get_contents($path) : '';
+        if (!is_file($path)) {
+            error_log("CSS no encontrado: $path");
+            return '';
+        }
+        $css = (string) file_get_contents($path);
+        // mPDF intentaría resolver @import externos (Google Fonts, etc.) y fallaría
+        return (string) preg_replace('/@import\s[^;]+;/i', '', $css);
     }
 
     private function assetPath(string $relative): string
     {
-        return str_replace('\\', '/', PUBLIC_PATH . '/assets/' . ltrim($relative, '/'));
+        // Construir ruta completa
+        $path = PUBLIC_PATH . DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . ltrim($relative, '/\\');
+        
+        // Verificar que el archivo existe
+        if (!is_file($path)) {
+            error_log("PDF: Archivo de imagen no encontrado: $path");
+            return '';
+        }
+        
+        // Embeber imagen como base64
+        return $this->imageToBase64($path);
+    }
+
+    private function imageToBase64(string $filePath): string
+    {
+        if (!is_file($filePath)) {
+            return '';
+        }
+        
+        $imageData = file_get_contents($filePath);
+        
+        // Detectar tipo MIME
+        $mimeType = 'image/png'; // default
+        if (function_exists('finfo_file')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            if ($finfo) {
+                $mimeType = finfo_file($finfo, $filePath) ?: $mimeType;
+                finfo_close($finfo);
+            }
+        } elseif (function_exists('mime_content_type')) {
+            $mimeType = mime_content_type($filePath) ?: $mimeType;
+        }
+        
+        return 'data:' . $mimeType . ';base64,' . base64_encode($imageData);
     }
 
     private function isDate(string $date): bool

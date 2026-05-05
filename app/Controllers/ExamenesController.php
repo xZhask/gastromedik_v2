@@ -60,4 +60,36 @@ class ExamenesController extends BaseController
         $this->examenes->eliminar((int) $request->param('id', 0));
         $this->noContent();
     }
+
+    public function serveFile(Request $request): void
+    {
+        $type     = $request->param('type', '');
+        $dni      = $request->param('dni', '');
+        $filename = $request->param('filename', '');
+
+        if (!in_array($type, ['pdf', 'imgs'], true)) {
+            http_response_code(404); exit;
+        }
+        if (!preg_match('/^\d{8}$/', $dni)) {
+            http_response_code(403); exit;
+        }
+        if (!preg_match('/^[\w.\-]+$/', $filename) || str_contains($filename, '..')) {
+            http_response_code(403); exit;
+        }
+
+        $path = BASE_PATH . '/uploads/' . $type . '/' . $dni . '/' . $filename;
+        if (!is_file($path)) {
+            http_response_code(404); exit;
+        }
+
+        $mime = mime_content_type($path) ?: 'application/octet-stream';
+
+        ob_end_clean();
+        header('Content-Type: ' . $mime);
+        header('Content-Length: ' . filesize($path));
+        header('Content-Disposition: inline; filename="' . rawurlencode($filename) . '"');
+        header('Cache-Control: private, max-age=3600');
+        readfile($path);
+        exit;
+    }
 }

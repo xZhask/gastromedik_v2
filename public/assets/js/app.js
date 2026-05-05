@@ -14,20 +14,22 @@ const IDUSER = document.querySelector('meta[name="user-id"]')?.content ?? ''
 
 // ── Rutas lazy ────────────────────────────────────────────────────────────────
 
+const V = window.__V__ ? `?v=${window.__V__}` : ''
+
 const ROUTES = {
-  hoy:           () => import('./views/hoy.js').then(m => m.HoyView()),
-  citas:         () => import('./views/citas.js').then(m => m.CitasView()),
-  pacientes:     () => import('./views/pacientes.js').then(m => m.PacientesView()),
-  atenciones:    () => import('./views/atenciones.js').then(m => m.AtencionesView()),
-  caja:          () => import('./views/caja.js').then(m => m.CajaView()),
-  procedimientos:() => import('./views/procedimientos.js').then(m => m.ProcedimientosView()),
-  reportproc:    () => import('./views/reportproc.js').then(m => m.ReportProcView()),
-  externos:      () => import('./views/externos.js').then(m => m.ExternosView()),
-  medicamentos:  () => import('./views/medicamentos.js').then(m => m.MedicamentosView()),
-  pendientes:    () => import('./views/pendientes.js').then(m => m.PendientesView()),
-  usuarios:      () => import('./views/usuarios.js').then(m => m.UsuariosView()),
-  reportes:      () => import('./views/reportes.js').then(m => m.ReportesView()),
-  cambiarpass:   () => import('./views/cambiarpass.js').then(m => m.CambiarPassView(IDUSER)),
+  hoy:           () => import(`./views/hoy.js${V}`).then(m => m.HoyView()),
+  citas:         () => import(`./views/citas.js${V}`).then(m => m.CitasView()),
+  pacientes:     () => import(`./views/pacientes.js${V}`).then(m => m.PacientesView()),
+  atenciones:    () => import(`./views/atenciones.js${V}`).then(m => m.AtencionesView()),
+  caja:          () => import(`./views/caja.js${V}`).then(m => m.CajaView()),
+  procedimientos:() => import(`./views/procedimientos.js${V}`).then(m => m.ProcedimientosView()),
+  reportproc:    () => import(`./views/reportproc.js${V}`).then(m => m.ReportProcView()),
+  externos:      () => import(`./views/externos.js${V}`).then(m => m.ExternosView()),
+  medicamentos:  () => import(`./views/medicamentos.js${V}`).then(m => m.MedicamentosView()),
+  pendientes:    () => import(`./views/pendientes.js${V}`).then(m => m.PendientesView()),
+  usuarios:      () => import(`./views/usuarios.js${V}`).then(m => m.UsuariosView()),
+  reportes:      () => import(`./views/reportes.js${V}`).then(m => m.ReportesView()),
+  cambiarpass:   () => import(`./views/cambiarpass.js${V}`).then(m => m.CambiarPassView(IDUSER)),
 }
 
 // ── Router ────────────────────────────────────────────────────────────────────

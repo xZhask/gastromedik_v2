@@ -14,7 +14,7 @@ let CAJA_ACTIVA = null
 export async function CajaView() {
   content().innerHTML = `
     <div class="citas-header">
-      <div class="citas-header__top">
+      <div class="citas-header__top" style="flex-wrap:wrap;">
         <div class="citas-header__title">
           <h1>Caja</h1>
           <span class="gm-page-header__sub" id="lbl-fecha-caja">Cargando estado…</span>
@@ -23,6 +23,7 @@ export async function CajaView() {
           <button class="btn-secundario" id="btn-aperturar" type="button">Aperturar caja</button>
           <button class="btn-peligro"    id="btn-cerrar"    type="button" disabled>Cerrar caja</button>
         </div>
+        <div id="caja-estado-msg" class="caja-estado-msg"></div>
       </div>
     </div>
 
@@ -77,57 +78,127 @@ function mostrarCajaCerrada() {
   CAJA_ACTIVA = null
   document.getElementById('caja-cerrada').hidden = false
   document.getElementById('caja-abierta').hidden = true
-  document.getElementById('btn-aperturar').disabled = false
-  document.getElementById('btn-cerrar').disabled    = true
   document.getElementById('lbl-fecha-caja').textContent = 'Sin caja activa'
+  actualizarBotonesCaja(false)
 }
 
 function mostrarCajaAbierta() {
   document.getElementById('caja-cerrada').hidden = true
   document.getElementById('caja-abierta').hidden = false
-  document.getElementById('btn-aperturar').disabled = true
-  document.getElementById('btn-cerrar').disabled    = false
   document.getElementById('lbl-fecha-caja').textContent = `Caja abierta desde ${CAJA_ACTIVA?.fecha_apertura ?? ''}`
   cargarIngresos()
   cargarGastos()
   cargarMontos()
+  actualizarBotonesCaja(true)
+}
+
+function actualizarBotonesCaja(abierta) {
+  const btnAperturar = document.getElementById('btn-aperturar')
+  const btnCerrar    = document.getElementById('btn-cerrar')
+  const msgCaja      = document.getElementById('caja-estado-msg')
+
+  if (abierta) {
+    btnAperturar.disabled = true
+    btnAperturar.classList.add('btndisabled')
+    btnCerrar.disabled    = false
+    btnCerrar.classList.remove('btndisabled')
+    if (msgCaja) {
+      msgCaja.textContent = '✓ Caja abierta — puede registrar movimientos.'
+      msgCaja.className   = 'caja-estado-msg caja-estado-msg--ok'
+    }
+  } else {
+    btnAperturar.disabled = false
+    btnAperturar.classList.remove('btndisabled')
+    btnCerrar.disabled    = true
+    btnCerrar.classList.add('btndisabled')
+    if (msgCaja) {
+      msgCaja.textContent = 'La caja está cerrada. Aperture para registrar movimientos financieros.'
+      msgCaja.className   = 'caja-estado-msg caja-estado-msg--warn'
+    }
+  }
 }
 
 async function cargarIngresos() {
   if (!CAJA_ACTIVA) return
   const wrap = document.getElementById('tabla-ingresos-body')
+  if (!wrap) return
   try {
     const { data } = await api.get('/api/caja/ultimos-ingresos', { idcajadiaria: CAJA_ACTIVA.idcajadiaria })
-    wrap.innerHTML = renderTable({
-      columns: [
-        { key: 'fecha',       label: 'Hora',      align: 'center' },
-        { key: 'descripcion', label: 'Descripción' },
-        { key: 'monto',       label: 'Total',     align: 'center', render: r => `S/. ${parseFloat(r.monto).toFixed(2)}` },
-        { key: 'nick',        label: 'Usuario',   align: 'center' },
-        { key: 'tipopago',    label: 'Tipo Pago', align: 'center', render: r => `<span class="badge badge-azul">${r.tipopago}</span>` },
-      ],
-      rows: data,
-      emptyMsg: 'Sin ingresos aún.',
-    })
-  } catch (err) { wrap.innerHTML = `<div class="state-error">${err.message}</div>` }
+    if (!data?.length) {
+      wrap.innerHTML = `<div class="caja-list-empty">Sin ingresos registrados aún.</div>`
+      return
+    }
+    wrap.innerHTML = `<ul class="caja-list">${data.map(r => renderMovimientoIngreso(r)).join('')}</ul>`
+  } catch (err) {
+    wrap.innerHTML = `<div class="state-error">${err.message}</div>`
+  }
 }
 
 async function cargarGastos() {
   if (!CAJA_ACTIVA) return
   const wrap = document.getElementById('tabla-gastos-body')
+  if (!wrap) return
   try {
     const { data } = await api.get('/api/caja/gastos', { idcajadiaria: CAJA_ACTIVA.idcajadiaria })
-    wrap.innerHTML = renderTable({
-      columns: [
-        { key: 'fecha',       label: 'Hora',      align: 'center' },
-        { key: 'descripcion', label: 'Descripción' },
-        { key: 'monto',       label: 'Total',     align: 'center', render: r => `S/. ${parseFloat(r.monto).toFixed(2)}` },
-        { key: 'nick',        label: 'Usuario',   align: 'center' },
-      ],
-      rows: data,
-      emptyMsg: 'Sin gastos aún.',
-    })
-  } catch (err) { wrap.innerHTML = `<div class="state-error">${err.message}</div>` }
+    if (!data?.length) {
+      wrap.innerHTML = `<div class="caja-list-empty">Sin gastos registrados.</div>`
+      return
+    }
+    wrap.innerHTML = `<ul class="caja-list">${data.map(r => renderMovimientoGasto(r)).join('')}</ul>`
+  } catch (err) {
+    wrap.innerHTML = `<div class="state-error">${err.message}</div>`
+  }
+}
+
+function renderMovimientoIngreso(r) {
+  const hora        = (r.fecha || '').slice(11, 16)
+  const fecha       = (r.fecha || '').slice(0, 10)
+  const tipoPago    = (r.tipopago || 'EFECTIVO').toUpperCase()
+  const esNoEfectivo = tipoPago !== 'EFECTIVO'
+  const tipoBadge   = esNoEfectivo
+    ? `<span class="badge badge-azul" style="margin-left:8px;">${tipoPago}</span>`
+    : ''
+  return `
+    <li class="caja-list-item caja-list-item--ingreso">
+      <div class="caja-list-item__time">
+        <span class="caja-list-item__hour">${hora}</span>
+        <span class="caja-list-item__date">${fecha}</span>
+      </div>
+      <div class="caja-list-item__main">
+        <span class="caja-list-item__desc">
+          ${escapeHtml(r.descripcion || '—')}${tipoBadge}
+        </span>
+        <span class="caja-list-item__sub">${escapeHtml(r.nick || '')}</span>
+      </div>
+      <div class="caja-list-item__amount caja-list-item__amount--ingreso">
+        +${formatMonto(r.monto)}
+      </div>
+    </li>`
+}
+
+function renderMovimientoGasto(r) {
+  const hora  = (r.fecha || '').slice(11, 16)
+  const fecha = (r.fecha || '').slice(0, 10)
+  return `
+    <li class="caja-list-item caja-list-item--gasto">
+      <div class="caja-list-item__time">
+        <span class="caja-list-item__hour">${hora}</span>
+        <span class="caja-list-item__date">${fecha}</span>
+      </div>
+      <div class="caja-list-item__main">
+        <span class="caja-list-item__desc">${escapeHtml(r.descripcion || '—')}</span>
+        <span class="caja-list-item__sub">${escapeHtml(r.nick || '')}</span>
+      </div>
+      <div class="caja-list-item__amount caja-list-item__amount--gasto">
+        −${formatMonto(r.monto)}
+      </div>
+    </li>`
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]))
 }
 
 async function cargarMontos() {
@@ -135,24 +206,46 @@ async function cargarMontos() {
   const wrap = document.getElementById('tabla-montos-body')
   try {
     const { data } = await api.get('/api/caja/montos', { idcajadiaria: CAJA_ACTIVA.idcajadiaria })
-    const filas = [
-      { desc: 'Efectivo',      monto: data.efectivo },
-      ...data.otros_ingresos.map(o => ({ desc: o.tipopago, monto: o.suma })),
-      { desc: 'Apertura caja', monto: data.monto_apertura },
-      { desc: 'Gastos',        monto: data.gastos },
-      { desc: 'Total en Caja', monto: data.total_caja,     bold: true },
-      { desc: 'Total Utilidad',monto: data.total_utilidad, bold: true },
-    ]
-    wrap.innerHTML = renderTable({
-      columns: [
-        { key: 'desc',  label: 'Descripción', render: r => r.bold ? `<strong>${r.desc}</strong>` : r.desc },
-        { key: 'monto', label: 'Monto', align: 'center',
-          render: r => `${r.bold ? '<strong>' : ''}S/. ${parseFloat(r.monto ?? 0).toFixed(2)}${r.bold ? '</strong>' : ''}` },
-      ],
-      rows: filas,
-      emptyMsg: 'Sin datos.',
+    wrap.innerHTML = renderMontos({
+      efectivo: data.efectivo,
+      apertura: data.monto_apertura,
+      gastos:   data.gastos,
+      total:    data.total_caja,
+      utilidad: data.total_utilidad,
     })
   } catch (err) { wrap.innerHTML = `<div class="state-error">${err.message}</div>` }
+}
+
+function renderMontos(montos) {
+  return `
+    <div class="caja-montos">
+      <div class="caja-monto-row">
+        <span class="caja-monto-row__label">Efectivo</span>
+        <span class="caja-monto-row__value">${formatMonto(montos.efectivo)}</span>
+      </div>
+      <div class="caja-monto-row">
+        <span class="caja-monto-row__label">Apertura de caja</span>
+        <span class="caja-monto-row__value">${formatMonto(montos.apertura)}</span>
+      </div>
+      <div class="caja-monto-row">
+        <span class="caja-monto-row__label">Gastos</span>
+        <span class="caja-monto-row__value caja-monto-row__value--rojo">${formatMonto(montos.gastos)}</span>
+      </div>
+      <div class="caja-monto-row caja-monto-row--divider"></div>
+      <div class="caja-monto-row caja-monto-row--total">
+        <span class="caja-monto-row__label">Total en caja</span>
+        <span class="caja-monto-row__value">${formatMonto(montos.total)}</span>
+      </div>
+      <div class="caja-monto-row caja-monto-row--utilidad">
+        <span class="caja-monto-row__label">Utilidad del día</span>
+        <span class="caja-monto-row__value caja-monto-row__value--verde">${formatMonto(montos.utilidad)}</span>
+      </div>
+    </div>`
+}
+
+function formatMonto(v) {
+  const n = parseFloat(v ?? 0)
+  return 'S/. ' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
 function bindEventos() {

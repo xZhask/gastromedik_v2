@@ -99,6 +99,21 @@
   <!-- TOAST -->
   <div id="toast-container" aria-live="polite"></div>
 
+  <script>
+    (function(){
+      var files = <?php
+        $jsFiles = array_merge(
+          [PUBLIC_PATH . '/assets/js/app.js'],
+          glob(PUBLIC_PATH . '/assets/js/views/*.js') ?: [],
+          glob(PUBLIC_PATH . '/assets/js/utils/*.js') ?: [],
+          glob(PUBLIC_PATH . '/assets/js/components/*.js') ?: []
+        );
+        $times = array_map('filemtime', array_filter($jsFiles, 'file_exists'));
+        echo (count($times) ? max($times) : time());
+      ?>;
+      window.__V__ = files;
+    })();
+  </script>
   <script type="module" src="/assets/js/app.js?v=<?= filemtime(PUBLIC_PATH . '/assets/js/app.js') ?>"></script>
 </body>
 </html>

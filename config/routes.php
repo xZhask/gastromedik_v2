@@ -11,6 +11,7 @@ use App\Controllers\PacienteController;
 use App\Controllers\PageController;
 use App\Controllers\PdfController;
 use App\Controllers\PersonalController;
+use App\Controllers\PosController;
 use App\Controllers\ProcedimientoController;
 use App\Controllers\ReporteController;
 use App\Core\Router;
@@ -97,12 +98,13 @@ $router->delete('/api/medicamentos/{id}',      [MedicamentoController::class, 'd
 $router->post  ('/api/medicamentos/movimiento',[MedicamentoController::class, 'registrarMovimiento'])->middleware($csrf);
 
 // Examenes
-$router->get   ('/api/examenes',               [ExamenesController::class, 'index'])->middleware($auth);
-$router->get   ('/api/examenes/{id}',          [ExamenesController::class, 'show'])->middleware($auth);
-$router->get   ('/api/examenes/{id}/imagenes', [ExamenesController::class, 'showImagenes'])->middleware($auth);
-$router->post  ('/api/examenes/subir-imagenes',[ExamenesController::class, 'storeImgs'])->middleware($csrf);
-$router->post  ('/api/examenes/subir-pdf',     [ExamenesController::class, 'storePdf'])->middleware($csrf);
-$router->delete('/api/examenes/{id}',          [ExamenesController::class, 'destroy'])->middleware($csrf);
+$router->get   ('/api/examenes',                            [ExamenesController::class, 'index'])->middleware($auth);
+$router->get   ('/api/examenes/{id}',                       [ExamenesController::class, 'show'])->middleware($auth);
+$router->get   ('/api/examenes/{id}/imagenes',              [ExamenesController::class, 'showImagenes'])->middleware($auth);
+$router->post  ('/api/examenes/subir-imagenes',             [ExamenesController::class, 'storeImgs'])->middleware($csrf);
+$router->post  ('/api/examenes/subir-pdf',                  [ExamenesController::class, 'storePdf'])->middleware($csrf);
+$router->delete('/api/examenes/{id}',                       [ExamenesController::class, 'destroy'])->middleware($csrf);
+$router->get   ('/uploads/{type}/{dni}/{filename}',         [ExamenesController::class, 'serveFile'])->middleware($auth);
 
 // Establecimientos
 $router->get ('/api/establecimientos',                 [EstablecimientoController::class, 'index'])->middleware($auth);
@@ -118,3 +120,7 @@ $router->get('/pdf/receta/{id}',          [PdfController::class, 'receta'])->mid
 $router->get('/pdf/ticket/{id}',          [PdfController::class, 'ticket'])->middleware($auth);
 $router->get('/pdf/reportes/movimientos', [PdfController::class, 'movimientos'])->middleware($auth);
 $router->get('/pdf/reportes/externos',    [PdfController::class, 'externos'])->middleware($auth);
+
+// POS Tickets
+$router->get('/pos/ticket/{id}/preview',  [PosController::class, 'preview'])->middleware($auth);
+$router->post('/pos/ticket/{id}/print',   [PosController::class, 'print'])->middleware($auth);

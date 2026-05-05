@@ -1357,7 +1357,6 @@ fieldset.mgt5 { margin-top: 5px; }
   bottom: 0;
   z-index: 2;
 }
-}
 
 .aten-section {
   margin-bottom: 28px;
@@ -1501,6 +1500,73 @@ fieldset.mgt5 { margin-top: 5px; }
   .caja-totales { position: static; }
 }
 
+/* Mensaje de estado de caja */
+.caja-estado-msg {
+  width: 100%;
+  font-size: .82rem;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  transition: var(--transition);
+}
+.caja-estado-msg--ok {
+  background: var(--verde-light);
+  border: 1px solid #a7e3c4;
+  color: #1a6b42;
+}
+.caja-estado-msg--warn {
+  background: var(--ambar-light);
+  border: 1px solid #f5c67a;
+  color: #7a5c00;
+}
+
+/* Resumen de montos */
+.caja-montos {
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.caja-monto-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: .88rem;
+  color: var(--texto-secundario);
+}
+.caja-monto-row__value {
+  font-weight: 600;
+  color: var(--texto-primario);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .2px;
+}
+.caja-monto-row__value--rojo  { color: var(--rojo); }
+.caja-monto-row__value--verde { color: var(--verde); }
+
+.caja-monto-row--divider {
+  height: 1px;
+  background: var(--borde-sutil);
+  margin: 4px 0;
+}
+.caja-monto-row--total {
+  font-weight: 700;
+  font-size: .92rem;
+  color: var(--texto-primario);
+  padding-top: 4px;
+}
+.caja-monto-row--total .caja-monto-row__label { color: var(--texto-primario); }
+.caja-monto-row--utilidad {
+  background: var(--verde-light);
+  border: 1px solid #a7e3c4;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-top: 4px;
+}
+.caja-monto-row--utilidad .caja-monto-row__label { color: #1a6b42; font-weight: 600; }
+.caja-monto-row--utilidad .caja-monto-row__value--verde { font-size: 1.05rem; }
+
 /* 14. RESPONSIVE ────────────────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
   #app-sidebar { left: calc(-1 * var(--sidebar-w)); transition: left .3s ease; z-index: 150; }
@@ -1537,4 +1603,125 @@ fieldset.mgt5 { margin-top: 5px; }
 }
 @media (max-width: 480px) {
   .cont-group { grid-template-columns: 1fr; }
+}
+
+/* ── Medicamentos / Inventario ──────────────────────────────────────────────── */
+.med-stock-ok {
+  font-weight: 600;
+  color: var(--texto-secundario);
+  font-variant-numeric: tabular-nums;
+}
+.med-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.med-grid > .gm-card { position: sticky; top: calc(var(--header-h) + 20px); }
+@media (max-width: 980px) {
+  .med-grid { grid-template-columns: 1fr; }
+  .med-grid > .gm-card { position: static; }
+}
+
+/* Kardex header */
+.kardex-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--borde-sutil);
+}
+.kardex-head__info { flex: 1; }
+.kardex-head__info h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--texto-primario);
+  margin: 0 0 2px;
+}
+.kardex-head__info p { font-size: .82rem; color: var(--texto-terciario); margin: 0; }
+.kardex-head .signo-card { min-width: 110px; align-items: center; text-align: center; }
+
+/* Lista de movimientos (ingresos / gastos) */
+.caja-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.caja-list-item {
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--borde-sutil);
+  transition: background .15s ease;
+}
+.caja-list-item:last-child { border-bottom: none; }
+.caja-list-item:hover { background: var(--superficie-3); }
+
+.caja-list-item__time {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-align: left;
+}
+.caja-list-item__hour {
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--texto-primario);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .3px;
+}
+.caja-list-item__date {
+  font-size: .7rem;
+  color: var(--texto-terciario);
+  font-variant-numeric: tabular-nums;
+}
+
+.caja-list-item__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.caja-list-item__desc {
+  font-size: .88rem;
+  font-weight: 500;
+  color: var(--texto-primario);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.caja-list-item__sub {
+  font-size: .74rem;
+  color: var(--texto-terciario);
+  text-transform: capitalize;
+}
+
+.caja-list-item__amount {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .2px;
+  white-space: nowrap;
+}
+.caja-list-item__amount--ingreso { color: var(--verde); }
+.caja-list-item__amount--gasto   { color: var(--rojo); }
+
+.caja-list-empty {
+  padding: 32px 18px;
+  text-align: center;
+  color: var(--texto-terciario);
+  font-size: .85rem;
+  font-style: italic;
+}
+
+@media (max-width: 600px) {
+  .caja-list-item {
+    grid-template-columns: 60px 1fr auto;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .caja-list-item__amount { font-size: .95rem; }
 }

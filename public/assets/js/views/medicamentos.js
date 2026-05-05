@@ -13,21 +13,26 @@ const content = () => document.getElementById('app-content')
 
 export async function MedicamentosView() {
   content().innerHTML = `
-    <div class="cabecera">
-      <h2>Medicamentos e Insumos</h2>
-      <div class="cont-groupbotones">
-        <button class="btn-secundario" id="btn-movimiento" type="button">Reg. Movimiento</button>
-        <button class="btn-secundario" id="btn-kardex"    type="button">Kardex</button>
+    <div class="citas-header">
+      <div class="citas-header__top">
+        <div class="citas-header__title">
+          <h1>Medicamentos e insumos</h1>
+          <span class="gm-page-header__sub" id="med-sub"></span>
+        </div>
+        <div class="citas-header__actions">
+          <button class="btn-secundario" id="btn-movimiento" type="button">Reg. Movimiento</button>
+          <button class="btn-secundario" id="btn-kardex"    type="button">Kardex</button>
+        </div>
       </div>
     </div>
-    <div class="cont-medicamentos">
+    <div class="med-grid">
+      <div id="form-med-wrap"></div>
       <div class="cont-tabla cont-tb-med" id="tabla-med-wrap">
         <div style="padding:10px 14px;border-bottom:1px solid var(--gris-border);">
           <input type="text" id="q-med" placeholder="Buscar medicamento o insumo..." style="width:100%;border:none;outline:none;font-size:.88rem;background:transparent;" />
         </div>
         <div id="tabla-med-body"></div>
       </div>
-      <div id="form-med-wrap"></div>
     </div>`
 
   await cargar()
@@ -42,11 +47,20 @@ async function cargar() {
   try {
     const q = document.getElementById('q-med')?.value ?? ''
     const { data } = await api.get('/api/medicamentos', q ? { q } : {})
+    document.getElementById('med-sub').textContent = `${data.length} productos en inventario`
     wrap.innerHTML = renderTable({
       columns: [
         { key: 'idmedicina', label: 'Código',   align: 'center' },
         { key: 'nombre',     label: 'Nombre' },
-        { key: 'stock',      label: 'Stock',    align: 'center' },
+        {
+          label: 'Stock', align: 'center',
+          render: r => {
+            const s = parseInt(r.stock ?? 0)
+            if (s === 0)        return '<span class="badge badge-rojo">Sin stock</span>'
+            if (s <= 5)         return `<span class="badge badge-ambar">${s} unid.</span>`
+            return `<span class="med-stock-ok">${s} unid.</span>`
+          },
+        },
         { key: 'tipoinsumo', label: 'Tipo',     align: 'center' },
         { label: 'Editar',   align: 'center',   render: () => iconBtn('edit',  'editar',   'Editar',   'icon-edit') },
         { label: 'Eliminar', align: 'center',   render: () => iconBtn('trash', 'eliminar', 'Eliminar', 'icon-danger') },
@@ -64,29 +78,31 @@ function renderFormRegistro(med) {
   const wrap   = document.getElementById('form-med-wrap')
   if (!wrap) return
   wrap.innerHTML = `
-    <form id="form-med" style="background:var(--blanco);border:1px solid var(--gris-border);border-radius:var(--radius);padding:20px;flex-shrink:0;width:300px;">
-      <h2 style="font-size:1rem;font-weight:700;margin-bottom:16px;">${isEdit ? 'Editar' : 'Registrar'} Medicam./Insumo</h2>
-      <input type="hidden" id="id-med-edit" value="${med?.idmedicina ?? ''}" />
-      <div class="cont-control">
-        <label>Nombre</label>
-        <input type="text" name="nombre" value="${med?.nombre ?? ''}" required />
-      </div>
-      <div class="cont-control">
-        <label>Cantidad inicial</label>
-        <input type="number" name="cantidad_inicial" value="${med ? '' : '0'}" min="0" ${isEdit ? 'disabled' : ''} />
-      </div>
-      <div class="cont-control">
-        <label>Tipo</label>
-        <select name="tipoinsumo">
-          <option value="MEDICAM" ${med?.tipoinsumo === 'MEDICAM' ? 'selected' : ''}>Medicamento</option>
-          <option value="INSUMO"  ${med?.tipoinsumo === 'INSUMO'  ? 'selected' : ''}>Insumo</option>
-        </select>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:10px;">
-        <button type="submit" class="btn-primario" style="flex:1;">${isEdit ? 'Actualizar' : 'Registrar'}</button>
-        ${isEdit ? `<button type="button" class="btn-secundario btn-cancelar" id="btn-cancelar-med">Cancelar</button>` : ''}
-      </div>
-    </form>`
+    <div class="gm-card">
+      <h3>${isEdit ? 'Editar' : 'Registrar'} Medicam./Insumo</h3>
+      <form id="form-med">
+        <input type="hidden" id="id-med-edit" value="${med?.idmedicina ?? ''}" />
+        <div class="cont-control">
+          <label>Nombre</label>
+          <input type="text" name="nombre" value="${med?.nombre ?? ''}" required />
+        </div>
+        <div class="cont-control">
+          <label>Cantidad inicial</label>
+          <input type="number" name="cantidad_inicial" value="${med ? '' : '0'}" min="0" ${isEdit ? 'disabled' : ''} />
+        </div>
+        <div class="cont-control">
+          <label>Tipo</label>
+          <select name="tipoinsumo">
+            <option value="MEDICAM" ${med?.tipoinsumo === 'MEDICAM' ? 'selected' : ''}>Medicamento</option>
+            <option value="INSUMO"  ${med?.tipoinsumo === 'INSUMO'  ? 'selected' : ''}>Insumo</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button type="submit" class="btn-primario" style="flex:1;">${isEdit ? 'Actualizar' : 'Registrar'}</button>
+          ${isEdit ? `<button type="button" class="btn-secundario btn-cancelar" id="btn-cancelar-med">Cancelar</button>` : ''}
+        </div>
+      </form>
+    </div>`
 
   document.getElementById('btn-cancelar-med')?.addEventListener('click', () => renderFormRegistro(null))
 
@@ -193,7 +209,16 @@ function abrirMovimiento() {
 async function abrirKardex() {
   const hoy = new Date().toISOString().split('T')[0]
   const html = `
-    <h2 class="modal-title">Kardex de Producto</h2>
+    <div class="kardex-head">
+      <div class="kardex-head__info">
+        <h3>Kardex de Producto</h3>
+        <p>Selecciona un producto y período para ver sus movimientos</p>
+      </div>
+      <div class="signo-card">
+        <div class="signo-card__label">Stock Actual</div>
+        <div class="signo-card__value" id="kardex-stock">—</div>
+      </div>
+    </div>
     <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">
       <div class="cont-control" style="margin:0;flex:1;">
         <label>Producto</label>
@@ -225,6 +250,9 @@ async function abrirKardex() {
     wrap.innerHTML = `<div class="state-loading"><div class="spinner"></div></div>`
     try {
       const { data } = await api.get('/api/reportes/kardex', { idproducto: id, fecha1: desde, fecha2: hasta })
+      // Actualizar stock en la header
+      const stock = data.length ? data[data.length - 1].saldo : 0
+      document.getElementById('kardex-stock').textContent = stock
       wrap.innerHTML = wrapTable(renderTable({
         columns: [
           { key: 'fecha',       label: 'Fecha' },

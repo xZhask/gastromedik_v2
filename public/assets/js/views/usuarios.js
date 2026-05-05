@@ -7,6 +7,7 @@ import { toastOk, toastError } from '../utils/toast.js'
 import { icon, iconBtn } from '../utils/icons.js'
 import { openModal, closeModal } from '../components/modal.js'
 import { renderTable, wrapTable } from '../components/table.js'
+import { skeletonTable } from '../components/skeleton.js'
 
 const content = () => document.getElementById('app-content')
 const CARGO   = parseInt(document.querySelector('meta[name="user-cargo"]')?.content ?? '0')
@@ -14,17 +15,19 @@ let CARGOS_LISTA = []
 
 export async function UsuariosView() {
   content().innerHTML = `
-    <div class="cabecera">
-      <h2>Usuarios</h2>
-      <div class="cont-busqueda">
-        <input type="text" id="q-usr" placeholder="Buscar usuario..." autocomplete="off" />
-        <button class="icon-btn" id="btn-buscar-usr" type="button">${icon('search')}</button>
+    <div class="citas-header">
+      <div class="citas-header__top">
+        <div class="citas-header__title">
+          <h1>Usuarios</h1>
+          <span class="gm-page-header__sub" id="usr-sub"></span>
+        </div>
+        <div class="citas-header__actions">
+          ${CARGO === 1 ? `
+            <button class="btn-secundario" id="btn-nuevo-usr"   type="button">${icon('plus')} Nuevo usuario</button>
+            <button class="btn-secundario" id="btn-nuevo-cargo" type="button">${icon('plus')} Cargo</button>
+          ` : ''}
+        </div>
       </div>
-      ${CARGO === 1 ? `
-        <div class="cont-groupbotones">
-          <button class="btn-secundario" id="btn-nuevo-usr"   type="button">${icon('plus')} Nuevo Usuario</button>
-          <button class="btn-secundario" id="btn-nuevo-cargo" type="button">${icon('plus')} Cargo</button>
-        </div>` : ''}
     </div>
     <div id="tabla-usr-wrap"></div>`
 
@@ -40,24 +43,49 @@ export async function UsuariosView() {
 async function cargar() {
   const wrap = document.getElementById('tabla-usr-wrap')
   if (!wrap) return
-  wrap.innerHTML = `<div class="state-loading"><div class="spinner"></div></div>`
+  wrap.innerHTML = skeletonTable(5, 6)
   try {
     const { data } = await api.get('/api/personal')
+    document.getElementById('usr-sub').textContent = `${data.length} usuarios activos`
+    if (!data.length) {
+      wrap.innerHTML = `
+        <div class="gm-empty">
+          <div class="gm-empty__icon">${icon('users')}</div>
+          <p class="gm-empty__text">No hay usuarios registrados.</p>
+        </div>`
+      return
+    }
     wrap.innerHTML = wrapTable(renderTable({
       columns: [
-        { key: 'dni',    label: 'DNI',     align: 'center' },
-        { key: 'nombre', label: 'Nombres' },
-        { key: 'nick',   label: 'Usuario', align: 'center' },
-        { key: 'cargo',  label: 'Cargo',   align: 'center' },
+        {
+          label: 'Usuario',
+          render: r => `
+            <div class="pac-cell">
+              <div class="gm-avatar">${(r.nombre + ' ' + r.apellidos).split(' ').map(p => p[0]).slice(0,2).join('').toUpperCase()}</div>
+              <div class="pac-cell__info">
+                <span class="pac-cell__name">${r.nombre} ${r.apellidos}</span>
+                <span class="pac-cell__meta">${r.nick}</span>
+              </div>
+            </div>`,
+        },
+        {
+          label: 'Cargo', align: 'center',
+          render: r => `<span class="badge badge-azul">${r.cargo}</span>`,
+        },
         ...(CARGO === 1 ? [
           { key: 'estado', label: 'Estado', align: 'center',
             render: r => `<span class="badge ${r.estado === 'ACTIVO' ? 'badge-verde' : 'badge-gris'}">${r.estado}</span>` },
-          { label: 'Editar',     align: 'center', render: () => iconBtn('edit',   'editar',   'Editar',         'icon-edit') },
-          { label: 'Contraseña', align: 'center', render: () => iconBtn('unlock', 'password', 'Cambiar contraseña', 'icon-info') },
+          {
+            label: 'Acciones', align: 'center',
+            render: () => `
+              <div class="pac-actions">
+                ${iconBtn('edit', 'editar', 'Editar', 'icon-edit')}
+                ${iconBtn('unlock', 'password', 'Cambiar contraseña', 'icon-info')}
+              </div>`,
+          },
         ] : []),
       ],
       rows: data.map(u => ({ ...u, _id: u.dni })),
-      emptyMsg: 'Sin usuarios registrados.',
     }))
   } catch (err) {
     wrap.innerHTML = `<div class="state-error">${err.message}</div>`
@@ -97,37 +125,45 @@ function abrirFormUsuario(usr) {
   const html = `
     <h2 class="modal-title">${isEdit ? 'Editar' : 'Nuevo'} Usuario</h2>
     <form id="form-usr" novalidate>
-      <div class="cont-group">
-        <div class="cont-control">
-          <label>DNI</label>
-          <input type="text" name="dni" value="${usr?.dni ?? ''}" ${isEdit ? 'readonly' : ''} maxlength="8" required />
+      <section class="aten-section">
+        <h3 class="aten-section__title">Datos personales</h3>
+        <div class="cont-group">
+          <div class="cont-control">
+            <label>DNI</label>
+            <input type="text" name="dni" value="${usr?.dni ?? ''}" ${isEdit ? 'readonly' : ''} maxlength="8" required />
+          </div>
+          <div class="cont-control">
+            <label>Nombres</label>
+            <input type="text" name="nombre" value="${usr?.nombre ?? ''}" required />
+          </div>
+          <div class="cont-control">
+            <label>Apellidos</label>
+            <input type="text" name="apellidos" value="${usr?.apellidos ?? ''}" required />
+          </div>
         </div>
-        <div class="cont-control">
-          <label>Nombres</label>
-          <input type="text" name="nombre" value="${usr?.nombre ?? ''}" required />
+      </section>
+      <section class="aten-section">
+        <h3 class="aten-section__title">Acceso al sistema</h3>
+        <div class="cont-group">
+          <div class="cont-control">
+            <label>Usuario (nick)</label>
+            <input type="text" name="nick" value="${usr?.nick ?? ''}" required />
+          </div>
+          ${!isEdit ? `<div class="cont-control"><label>Contraseña</label><input type="password" name="pass" required /></div>` : ''}
+          <div class="cont-control">
+            <label>Cargo</label>
+            <select name="idcargo" required>${optsC}</select>
+          </div>
+          <div class="cont-control">
+            <label>Estado</label>
+            <select name="estado">
+              <option value="ACTIVO"   ${usr?.estado === 'ACTIVO'   ? 'selected' : ''}>Activo</option>
+              <option value="INACTIVO" ${usr?.estado === 'INACTIVO' ? 'selected' : ''}>Inactivo</option>
+            </select>
+          </div>
         </div>
-        <div class="cont-control">
-          <label>Apellidos</label>
-          <input type="text" name="apellidos" value="${usr?.apellidos ?? ''}" required />
-        </div>
-        <div class="cont-control">
-          <label>Usuario (nick)</label>
-          <input type="text" name="nick" value="${usr?.nick ?? ''}" required />
-        </div>
-        ${!isEdit ? `<div class="cont-control"><label>Contraseña</label><input type="password" name="pass" required /></div>` : ''}
-        <div class="cont-control">
-          <label>Cargo</label>
-          <select name="idcargo" required>${optsC}</select>
-        </div>
-        <div class="cont-control">
-          <label>Estado</label>
-          <select name="estado">
-            <option value="ACTIVO"   ${usr?.estado === 'ACTIVO'   ? 'selected' : ''}>Activo</option>
-            <option value="INACTIVO" ${usr?.estado === 'INACTIVO' ? 'selected' : ''}>Inactivo</option>
-          </select>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:12px;">
+      </section>
+      <div class="form-pac__actions">
         <button type="submit" class="btn-primario">${isEdit ? 'Actualizar' : 'Registrar'}</button>
         <button type="button" class="btn-secundario btn-cancelar" id="btn-cancel-usr">Cancelar</button>
       </div>

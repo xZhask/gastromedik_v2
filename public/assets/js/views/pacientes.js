@@ -447,7 +447,7 @@ async function abrirHistorial(dni) {
         } else if (btn.dataset.type === 'img') {
           const { data } = await api.get(`/api/examenes/${btn.dataset.id}/imagenes`)
           panel.innerHTML = data.length
-            ? `<div class="examen-imgs-grid">${data.map(d => `<div class="examen-img"><img src="${d.archivo}" alt="" loading="lazy" /></div>`).join('')}</div>`
+            ? `<div class="examen-imgs-grid">${data.map(d => `<div class="examen-img"><img src="/${d.archivo}" alt="" loading="lazy" /></div>`).join('')}</div>`
             : '<p class="muted">No hay imágenes asociadas.</p>'
         } else if (btn.dataset.type === 'pdf') {
           const { data } = await api.get(`/api/examenes/${btn.dataset.id}`)
@@ -455,7 +455,7 @@ async function abrirHistorial(dni) {
             <div class="examen-pdf-actions">
               <button class="btn-peligro" data-action="del-examen" data-id="${btn.dataset.id}" type="button">Eliminar examen</button>
             </div>
-            <iframe src="${data[0]?.archivo ?? ''}" class="examen-pdf-frame"></iframe>`
+            <iframe src="/${data[0]?.archivo ?? ''}" class="examen-pdf-frame"></iframe>`
         }
       } catch (err) {
         panel.innerHTML = `<div class="state-error">${err.message}</div>`
