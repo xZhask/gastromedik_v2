@@ -423,16 +423,166 @@ fieldset.mgt5 { margin-top: 5px; }
 .tdtotalespdf { font-size: 13px; font-weight: 900 !important; }
 .tdtotalespdf span { margin: 0 10px !important; }
 
-/* Ticket */
-.bodyticket { margin: 0; background: #fff !important; }
-.cont-ticket { width: 70mm; font-size: .9em; font-family: 'Courier New', monospace; }
-.cont-ticket div, .cont-imgticket img { width: 100%; }
-.infoticket { text-align: center; font-size: .7em; }
-.apartado { font-weight: bold; margin-top: 15px !important; }
-.nrocita { font-size: 1.5em; font-weight: bold; margin: 5px 0; }
-.cuerpoticket { font-size: .8em; }
-.cuerpoticket p { margin: 3px 0 !important; }
-.cont-ticket p span { font-weight: bold; }
+/* ══════════════════════════════════════════════════════════════════════
+   TICKET POS (80mm) — generado por mPDF
+   ══════════════════════════════════════════════════════════════════════ */
+.bodyticket {
+  margin: 0;
+  background: #fff !important;
+  color: #000;
+  font-family: 'Helvetica', 'Arial', sans-serif;
+}
+.ticket {
+  width: 72mm;
+  font-size: 9pt;
+  line-height: 1.35;
+}
+
+/* Cabecera */
+.ticket-head {
+  text-align: center;
+  margin-bottom: 4mm;
+}
+.ticket-logo {
+  width: 14mm;
+  height: auto;
+  margin-bottom: 1.5mm;
+}
+.ticket-brand {
+  font-size: 13pt;
+  font-weight: 700;
+  letter-spacing: 1.5pt;
+  margin: 0 0 1mm;
+}
+.ticket-addr {
+  font-size: 7.5pt;
+  margin: 0;
+  line-height: 1.3;
+}
+
+/* Separadores sutiles */
+.ticket-sep {
+  border-top: 0.3mm dashed #444;
+  margin: 3mm 0;
+  height: 0;
+}
+
+/* Filas de meta (comprobante / emisión) */
+.ticket-meta__row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8pt;
+  margin: 0.6mm 0;
+}
+.ticket-meta__val {
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+}
+
+/* Bloques (Paciente / Detalle) */
+.ticket-block {
+  margin: 1mm 0;
+}
+.ticket-block__title {
+  font-size: 7pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1pt;
+  margin: 0 0 1mm;
+  color: #555;
+}
+.ticket-data {
+  font-size: 9pt;
+  font-weight: 600;
+  margin: 0 0 0.5mm;
+  font-family: 'Courier New', monospace;
+}
+.ticket-data--motivo {
+  font-size: 9.5pt;
+  font-weight: 700;
+}
+.ticket-data--muted {
+  font-size: 8pt;
+  font-weight: 500;
+  color: #555;
+}
+
+/* Tabla de detalle de cita */
+.ticket-detalle {
+  width: 100%;
+  font-size: 8pt;
+  font-family: 'Courier New', monospace;
+  margin-top: 1mm;
+}
+.ticket-detalle td {
+  padding: 0.5mm 0;
+}
+.ticket-detalle__val {
+  text-align: right;
+  font-weight: 700;
+}
+
+/* Totales — la zona más importante */
+.ticket-totales {
+  margin: 2mm 0;
+}
+.ticket-tot-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 9pt;
+  margin: 0.8mm 0;
+  font-family: 'Courier New', monospace;
+}
+.ticket-tot-row__val {
+  font-weight: 700;
+}
+.ticket-tot-row--big {
+  font-size: 11.5pt;
+  font-weight: 700;
+  border-top: 0.2mm solid #000;
+  border-bottom: 0.2mm solid #000;
+  padding: 1.2mm 0;
+  margin: 1.5mm 0;
+}
+.ticket-tot-row--big .ticket-tot-row__val {
+  font-size: 14pt;
+}
+.ticket-tot-row--saldo {
+  font-size: 9pt;
+  color: #b00;
+  font-weight: 700;
+  margin-top: 1mm;
+}
+
+/* Estado del pago */
+.ticket-estado {
+  text-align: center;
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 1.5pt;
+  padding: 1.2mm 0;
+  margin: 2mm 0 1mm;
+  border: 0.4mm solid #000;
+  border-radius: 1.5mm;
+}
+.ticket-estado--pagado   { color: #000; background: #f0f0f0; }
+.ticket-estado--a-cuenta { color: #000; background: #fff7d6; border-color: #b8860b; }
+
+/* Pie */
+.ticket-foot {
+  text-align: center;
+  font-size: 7.5pt;
+  color: #444;
+  margin-top: 2mm;
+}
+.ticket-foot p { margin: 0.8mm 0; }
+.ticket-foot__thanks {
+  font-size: 8.5pt;
+  font-weight: 700;
+  color: #000;
+  margin-top: 1.5mm !important;
+}
 
 /* jQuery UI */
 .ui-autocomplete { border: 1.5px solid var(--gris-border) !important; border-radius: var(--radius-sm) !important; box-shadow: var(--shadow-md) !important; font-family: 'DM Sans', sans-serif !important; font-size: .88rem !important; z-index: 9999 !important; }

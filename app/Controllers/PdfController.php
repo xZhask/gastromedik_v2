@@ -57,12 +57,13 @@ class PdfController
 
         $this->streamPdf($html, 'Ticket.pdf', [
             'mode' => 'utf-8',
-            'format' => [80, 150],
-            'margin_left' => 3,
-            'margin_right' => 3,
-            'margin_top' => 12,
-            'margin_bottom' => 10,
-            'margin_header' => 10,
+            'format' => [80, 200],
+            'margin_top' => 6,
+            'margin_bottom' => 6,
+            'margin_header' => 0,
+            'margin_footer' => 0,
+            'margin_left' => 4,
+            'margin_right' => 4,
         ]);
     }
 
@@ -164,38 +165,103 @@ class PdfController
 
     private function renderTicket(int $idCita, array $cita, ?array $movimiento): string
     {
-        $logo = $this->assetPath('img/logoticket2.png');
-        $monto = number_format((float) ($movimiento['monto'] ?? 0), 2);
+        $logo  = $this->assetPath('img/logoticket2.png');
+        $monto = (float) ($movimiento['monto'] ?? 0);
+        $precio = (float) ($cita['precio_consulta'] ?? 0);
+        $saldo  = max(0, $precio - $monto);
+        $tipoPago = strtoupper((string) ($movimiento['tipopago'] ?? 'EFECTIVO'));
+        $estadoPago = $saldo > 0 ? 'A CUENTA' : 'PAGADO';
+
+        $paciente  = trim(($cita['apellidospaciente'] ?? '') . ', ' . ($cita['nombrepaciente'] ?? ''), ', ');
+        $fechaHora = date('d/m/Y H:i');
 
         return '<body class="bodyticket">
-            <div class="cont-ticket">
-                <div class="cont-imgticket"><img src="' . $this->e($logo) . '"></div>
-                <div>
-                    <div class="infoticket">
-                        <p>Francisco Cabrera Nro 419 2do Piso<br>
+            <div class="ticket">
+
+                <header class="ticket-head">
+                    <img class="ticket-logo" src="' . $this->e($logo) . '">
+                    <h1 class="ticket-brand">GASTRO-MEDIK</h1>
+                    <p class="ticket-addr">
+                        Francisco Cabrera N° 419 - 2do Piso<br>
                         Chiclayo<br>
-                        Tel: (074) 618 329<br>
-                        Cel: 973 995 974<br>' . date('d-m-Y H:i:s') . '</p>
-                        <p class="nrocita">Nro CITA : ' . $idCita . '</p>
+                        Tel: (074) 618 329 / Cel: 973 995 974
+                    </p>
+                </header>
+
+                <div class="ticket-sep"></div>
+
+                <div class="ticket-meta">
+                    <div class="ticket-meta__row">
+                        <span>Comprobante</span>
+                        <span class="ticket-meta__val">N° ' . $idCita . '</span>
                     </div>
-                    <div class="cuerpoticket">
-                        <div class="linea"></div>
-                        <p class="apartado">DATOS DE PACIENTE :</p>
-                        <div class="linea"></div>
-                        <p><span>PACIENTE : </span> ' . $this->e(($cita['apellidospaciente'] ?? '') . ', ' . ($cita['nombrepaciente'] ?? '')) . '</p>
-                        <p><span>NRO DOC : </span> ' . $this->e($cita['dni'] ?? '') . '</p>
-                        <div class="linea"></div>
-                        <p class="apartado">DATOS DE CITA :</p>
-                        <div class="linea"></div>
-                        <p><span>FECHA CITA : </span> ' . $this->e($cita['fecha'] ?? '') . '</p>
-                        <p><span>HORA CITA : </span> ' . $this->e($cita['horario'] ?? '') . '</p>
-                        <p><span>MOTIVO : </span> ' . $this->e($cita['motivo'] ?? '') . '</p>
-                        <p><span>PRECIO : </span> ' . $this->e($cita['precio_consulta'] ?? '') . '</p>
-                        <p><span>A CUENTA : </span> ' . $monto . '</p>
+                    <div class="ticket-meta__row">
+                        <span>Emisión</span>
+                        <span class="ticket-meta__val">' . $fechaHora . '</span>
                     </div>
-                    <div class="linea"></div>
-                    <div class="infoticket"><p>Este no es un comprobante de Pago.<br>Gracias por su gentil preferencia</p></div>
                 </div>
+
+                <div class="ticket-sep"></div>
+
+                <div class="ticket-block">
+                    <h2 class="ticket-block__title">Paciente</h2>
+                    <p class="ticket-data">' . $this->e($paciente) . '</p>
+                    <p class="ticket-data ticket-data--muted">DNI: ' . $this->e($cita['dni'] ?? '—') . '</p>
+                </div>
+
+                <div class="ticket-sep"></div>
+
+                <div class="ticket-block">
+                    <h2 class="ticket-block__title">Detalle</h2>
+                    <p class="ticket-data ticket-data--motivo">' . $this->e($cita['motivo'] ?? '—') . '</p>
+                    <table class="ticket-detalle">
+                        <tr>
+                            <td>Fecha cita</td>
+                            <td class="ticket-detalle__val">' . $this->e($cita['fecha'] ?? '—') . '</td>
+                        </tr>
+                        <tr>
+                            <td>Hora</td>
+                            <td class="ticket-detalle__val">' . $this->e(substr((string)($cita['horario'] ?? ''), 0, 5)) . '</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="ticket-sep"></div>
+
+                <div class="ticket-totales">
+                    <div class="ticket-tot-row">
+                        <span>Precio</span>
+                        <span class="ticket-tot-row__val">S/ ' . number_format($precio, 2) . '</span>
+                    </div>
+                    <div class="ticket-tot-row ticket-tot-row--big">
+                        <span>Pagado</span>
+                        <span class="ticket-tot-row__val">S/ ' . number_format($monto, 2) . '</span>
+                    </div>'
+                    . ($saldo > 0
+                        ? '<div class="ticket-tot-row ticket-tot-row--saldo">
+                              <span>Saldo pendiente</span>
+                              <span class="ticket-tot-row__val">S/ ' . number_format($saldo, 2) . '</span>
+                          </div>'
+                        : ''
+                    ) . '
+                </div>
+
+                <div class="ticket-estado ticket-estado--' . strtolower(str_replace(' ', '-', $estadoPago)) . '">
+                    ' . $estadoPago . '
+                </div>
+
+                <div class="ticket-meta__row" style="margin-top:6px;">
+                    <span>Forma de pago</span>
+                    <span class="ticket-meta__val">' . $this->e($tipoPago) . '</span>
+                </div>
+
+                <div class="ticket-sep"></div>
+
+                <footer class="ticket-foot">
+                    <p>Documento informativo.<br>No constituye comprobante de pago.</p>
+                    <p class="ticket-foot__thanks">¡Gracias por su preferencia!</p>
+                </footer>
+
             </div>
         </body>';
     }
