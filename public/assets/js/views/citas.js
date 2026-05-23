@@ -315,10 +315,10 @@ function cambiarFecha(dias) {
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 
-async function editarCita(idcita) {
+export async function editarCita(idcita, onSaved = null) {
   try {
     const res = await api.get(`/api/citas/${idcita}`)
-    abrirFormCita(res.data)
+    abrirFormCita(res.data, null, onSaved)
   } catch (err) { toastError(err.message) }
 }
 
@@ -337,9 +337,14 @@ async function anularCita(idcita, tr) {
   } catch (err) { toastError(err.message) }
 }
 
-function abrirFormCita(cita) {
+export async function abrirFormCita(cita = null, fechaDefecto = null, onSaved = null) {
+  if (PROCEDIMIENTOS.length === 0) {
+    const res = await api.get('/api/tipo-atencion')
+    PROCEDIMIENTOS = res.data
+  }
+
   const isEdit = cita !== null
-  const hoy    = new Date().toISOString().split('T')[0]
+  const hoy    = fechaDefecto || new Date().toISOString().split('T')[0]
 
   const optsProc = PROCEDIMIENTOS.map(p =>
     `<option value="${p.idtipoatencion}" data-precio="${p.precio}"
@@ -490,22 +495,27 @@ function abrirFormCita(cita) {
 
   document.getElementById('form-cita').addEventListener('submit', async (e) => {
     e.preventDefault()
+    const btn = e.submitter || e.target.querySelector('button[type="submit"]')
+    if (btn) btn.classList.add('btn-loading')
     const body = Object.fromEntries(new FormData(e.target).entries())
     try {
       if (isEdit) {
         await api.put(`/api/citas/${cita.idcita}`, body)
         toastOk('Cita actualizada.')
         closeModal()
-        cargarCitas()
+        if (typeof onSaved === 'function') await onSaved()
+        else cargarCitas()
       } else {
         const res    = await api.post('/api/citas', body)
         const idcita = res.data?.idcita ?? res.idcita
         toastOk('Cita registrada.')
         closeModal()
-        cargarCitas()
+        if (typeof onSaved === 'function') await onSaved()
+        else cargarCitas()
         await confirmarYPagar(idcita)
       }
     } catch (err) { toastError(err.message) }
+    finally { if (btn) btn.classList.remove('btn-loading') }
   })
 }
 
@@ -553,6 +563,8 @@ async function asegurarCajaAbierta() {
 
     document.getElementById('form-aperturar-inline').addEventListener('submit', async (e) => {
       e.preventDefault()
+      const btn = e.submitter || e.target.querySelector('button[type="submit"]')
+      if (btn) btn.classList.add('btn-loading')
       const body = Object.fromEntries(new FormData(e.target).entries())
       try {
         await api.post('/api/caja/aperturar', body)
@@ -562,6 +574,8 @@ async function asegurarCajaAbierta() {
       } catch (err) {
         toastError(err.message)
         resolve(false)
+      } finally {
+        if (btn) btn.classList.remove('btn-loading')
       }
     })
   })
@@ -665,6 +679,8 @@ async function abrirPago(idcita) {
 
   document.getElementById('form-pago').addEventListener('submit', async (e) => {
     e.preventDefault()
+    const btn = e.submitter || e.target.querySelector('button[type="submit"]')
+    if (btn) btn.classList.add('btn-loading')
     const body = { ...Object.fromEntries(new FormData(e.target).entries()), idcita, motivo: cita.motivo }
     try {
       const res = await api.post('/api/caja/pago', body)
@@ -673,6 +689,7 @@ async function abrirPago(idcita) {
       cargarCitas()
       abrirTicket(res.idcita)
     } catch (err) { toastError(err.message) }
+    finally { if (btn) btn.classList.remove('btn-loading') }
   })
 }
 

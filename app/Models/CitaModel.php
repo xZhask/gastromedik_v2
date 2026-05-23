@@ -6,6 +6,26 @@ use App\Core\Base\BaseModel;
 
 class CitaModel extends BaseModel
 {
+    /** Lista citas en un rango de fechas para el calendario */
+    public function listarEnRango(string $start, string $end): array
+    {
+        return $this->db->query(
+            'SELECT c.idcita,
+                    c.fecha,
+                    c.horario,
+                    p.dni,
+                    concat_ws(", ", p.apellidos, p.nombre) AS paciente,
+                    t.nombre  AS motivo,
+                    c.estado
+               FROM cita c
+               INNER JOIN paciente p      ON p.dni = c.dni
+               INNER JOIN tipo_atencion t ON t.idtipoatencion = c.motivo_consulta
+              WHERE c.fecha >= :start AND c.fecha <= :end
+              ORDER BY c.fecha, c.horario',
+            [':start' => $start, ':end' => $end]
+        )->fetchAll() ?: [];
+    }
+
     /** Lista citas de una fecha concreta con datos de paciente y tipo de atención */
     public function listarPorFecha(string $fecha): array
     {

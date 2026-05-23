@@ -378,13 +378,16 @@ async function abrirHistorial(dni) {
       : '<li class="hist-empty">Sin atenciones registradas.</li>'
 
     const liExamenes = examenes.length
-      ? examenes.map(ex => `
+      ? examenes.map(ex => {
+          const badgeClass = ex.tipo === 'PDF' ? 'badge-rojo' : 'badge-azul'
+          return `
           <li>
             <button class="hist-item" data-type="${ex.tipo.toLowerCase()}" data-id="${ex.idexamen}">
               <span class="hist-item__date">${ex.fecha}</span>
-              <span class="hist-item__title">${escapeHtml(ex.nombre)} <span class="badge badge-gris" style="margin-left:6px;">${ex.tipo}</span></span>
+              <span class="hist-item__title">${escapeHtml(ex.nombre)} <span class="badge ${badgeClass}" style="margin-left:6px;">${ex.tipo}</span></span>
             </button>
-          </li>`).join('')
+          </li>`
+        }).join('')
       : '<li class="hist-empty">Sin exámenes registrados.</li>'
 
     const html = `
@@ -486,29 +489,41 @@ function renderConsultaSOAP(a) {
        </div>`
     : ''
 
-  const seccion = (titulo, contenido) =>
+  const seccion = (titulo, contenido, iconName) =>
     contenido && contenido !== '-' && contenido.trim()
       ? `<section class="soap-section">
-           <h4>${titulo}</h4>
-           <p>${escapeHtml(contenido).replace(/\n/g, '<br/>')}</p>
+           <h4>${icon(iconName)} ${titulo}</h4>
+           <div class="soap-section__content">
+             <p>${escapeHtml(contenido).replace(/\n/g, '<br/>')}</p>
+           </div>
          </section>`
       : ''
 
   return `
     <div class="consulta-detalle">
-      <header class="consulta-detalle__head">
-        <span class="consulta-detalle__date">${a.fechaatencion ?? ''}</span>
-        <a href="/pdf/receta/${a.idatencion}" target="_blank" class="btn-secundario btn-sm">${icon('pdf')} Ver receta</a>
-      </header>
+      <div class="consulta-detalle__head">
+        <div class="consulta-detalle__info">
+          <div class="consulta-detalle__icon">${icon('calendar')}</div>
+          <div class="consulta-detalle__texts">
+            <span class="consulta-detalle__title">Detalle de Atención</span>
+            <span class="consulta-detalle__date">${a.fechaatencion ?? ''}</span>
+          </div>
+        </div>
+        <a href="/pdf/receta/${a.idatencion}" target="_blank" class="btn-secundario btn-sm" style="border-radius: 99px;">
+          ${icon('pdf')} Ver receta
+        </a>
+      </div>
 
       ${signosHtml}
 
-      ${seccion('Antecedente',        a.antecedente)}
-      ${seccion('Motivo de consulta', a.motivoconsulta)}
-      ${seccion('Anamnesis',          a.anamensis)}
-      ${seccion('Examen físico',      a.exfisico)}
-      ${seccion('Diagnóstico',        a.diagnostico)}
-      ${seccion('Tratamiento',        a.tratamiento)}
+      <div class="soap-container">
+        ${seccion('Antecedente',        a.antecedente,    'history')}
+        ${seccion('Motivo de consulta', a.motivoconsulta, 'report')}
+        ${seccion('Anamnesis',          a.anamensis,      'chart')}
+        ${seccion('Examen físico',      a.exfisico,       'patient')}
+        ${seccion('Diagnóstico',        a.diagnostico,    'heartbeat')}
+        ${seccion('Tratamiento',        a.tratamiento,    'pill')}
+      </div>
     </div>`
 }
 

@@ -17,13 +17,14 @@ const IDUSER = document.querySelector('meta[name="user-id"]')?.content ?? ''
 const V = window.__V__ ? `?v=${window.__V__}` : ''
 
 const ROUTES = {
+  dashboard:     () => import(`./views/dashboard.js${V}`).then(m => m.DashboardView()),
   hoy:           () => import(`./views/hoy.js${V}`).then(m => m.HoyView()),
   citas:         () => import(`./views/citas.js${V}`).then(m => m.CitasView()),
+  calendario:    () => import(`./views/calendario.js${V}`).then(m => m.CalendarioView()),
   pacientes:     () => import(`./views/pacientes.js${V}`).then(m => m.PacientesView()),
   atenciones:    () => import(`./views/atenciones.js${V}`).then(m => m.AtencionesView()),
   caja:          () => import(`./views/caja.js${V}`).then(m => m.CajaView()),
   procedimientos:() => import(`./views/procedimientos.js${V}`).then(m => m.ProcedimientosView()),
-  reportproc:    () => import(`./views/reportproc.js${V}`).then(m => m.ReportProcView()),
   externos:      () => import(`./views/externos.js${V}`).then(m => m.ExternosView()),
   medicamentos:  () => import(`./views/medicamentos.js${V}`).then(m => m.MedicamentosView()),
   pendientes:    () => import(`./views/pendientes.js${V}`).then(m => m.PendientesView()),
@@ -38,7 +39,14 @@ const contentEl = document.getElementById('app-content')
 let currentRoute = null
 
 export async function navigate(route) {
-  if (!ROUTES[route]) route = 'hoy'
+  if (!ROUTES[route]) {
+    // Si no tiene ruta válida, intentar dashboard para admins, hoy para el resto
+    if (CARGO === 1 || CARGO === 4) {
+      route = 'dashboard'
+    } else {
+      route = 'hoy'
+    }
+  }
   if (route === currentRoute) return
   currentRoute = route
   setActiveRoute(route)
@@ -64,6 +72,66 @@ function init() {
 
   document.getElementById('btn-logout')?.addEventListener('click', async () => {
     try { await api.post('/logout', {}) } finally { window.location.assign('/login') }
+  })
+
+  // ── Modo Oscuro ─────────────────────────────────────────────────────────────
+  const btnTheme = document.getElementById('btn-theme-toggle')
+  const iconMoon = document.getElementById('icon-moon')
+  const iconSun  = document.getElementById('icon-sun')
+  
+  function applyTheme(theme) {
+    if (theme === 'dark') {
+      document.body.dataset.theme = 'dark'
+      if (iconMoon) iconMoon.style.display = 'none'
+      if (iconSun) iconSun.style.display = 'block'
+    } else {
+      delete document.body.dataset.theme
+      if (iconMoon) iconMoon.style.display = 'block'
+      if (iconSun) iconSun.style.display = 'none'
+    }
+  }
+
+  const savedTheme = localStorage.getItem('gm-theme')
+  if (savedTheme) applyTheme(savedTheme)
+
+  btnTheme?.addEventListener('click', () => {
+    const isDark = document.body.dataset.theme === 'dark'
+    const newTheme = isDark ? 'light' : 'dark'
+    localStorage.setItem('gm-theme', newTheme)
+    applyTheme(newTheme)
+  })
+
+  // ── Validación global de formularios ──────────────────────────────────────────
+  document.addEventListener('invalid', (e) => {
+    e.preventDefault()
+    const field = e.target
+    field.classList.add('is-invalid')
+    let feedback = field.nextElementSibling
+    if (!feedback || !feedback.classList.contains('invalid-feedback')) {
+      feedback = document.createElement('div')
+      feedback.classList.add('invalid-feedback')
+      field.parentNode.insertBefore(feedback, field.nextSibling)
+    }
+    feedback.textContent = field.validationMessage
+    feedback.style.display = 'block'
+    
+    // Enfocar el primer elemento inválido
+    const form = field.closest('form')
+    if (form) {
+      const firstInvalid = form.querySelector('.is-invalid')
+      if (firstInvalid === field) field.focus()
+    }
+  }, true)
+
+  document.addEventListener('input', (e) => {
+    const field = e.target
+    if (field.classList?.contains('is-invalid')) {
+      field.classList.remove('is-invalid')
+      const feedback = field.nextElementSibling
+      if (feedback && feedback.classList.contains('invalid-feedback')) {
+        feedback.style.display = 'none'
+      }
+    }
   })
 
   navigate('hoy')

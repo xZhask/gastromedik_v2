@@ -32,6 +32,11 @@ class CitaService
 
     // ── Consultas ─────────────────────────────────────────────────────────────
 
+    public function listarEnRango(string $start, string $end): array
+    {
+        return $this->citas->listarEnRango($start, $end);
+    }
+
     /** Lista citas de una fecha enriquecidas con su atención asociada */
     public function listarPorFecha(string $fecha): array
     {

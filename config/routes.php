@@ -4,6 +4,7 @@ use App\Controllers\AtencionController;
 use App\Controllers\AuthController;
 use App\Controllers\CajaController;
 use App\Controllers\CitaController;
+use App\Controllers\DashboardController;
 use App\Controllers\EstablecimientoController;
 use App\Controllers\ExamenesController;
 use App\Controllers\MedicamentoController;
@@ -24,6 +25,11 @@ $csrf = [AuthMiddleware::class, CsrfMiddleware::class];
 // Paginas HTML
 $router->get('/login', [PageController::class, 'login']);
 $router->get('/',      [PageController::class, 'dashboard'])->middleware($auth);
+
+// Dashboard Analíticas
+$router->get('/api/dashboard/kpis',           [DashboardController::class, 'kpis'])->middleware($auth);
+$router->get('/api/dashboard/finanzas',       [DashboardController::class, 'finanzas'])->middleware($auth);
+$router->get('/api/dashboard/procedimientos', [DashboardController::class, 'procedimientos'])->middleware($auth);
 
 // Autenticacion
 $router->post('/login',        [AuthController::class, 'login']);
@@ -54,6 +60,7 @@ $router->get   ('/api/citas/pendientes',        [CitaController::class, 'pendien
 $router->get   ('/api/citas/buscar',            [CitaController::class, 'buscar'])->middleware($auth);
 $router->get   ('/api/citas/reporte-atenciones',[CitaController::class, 'cantidadAtenciones'])->middleware($auth);
 $router->get   ('/api/citas/externas',          [CitaController::class, 'externasIndex'])->middleware($auth);
+$router->get   ('/api/citas/rango',             [CitaController::class, 'rango'])->middleware($auth);
 $router->get   ('/api/citas/{id}',              [CitaController::class, 'show'])->middleware($auth);
 $router->post  ('/api/citas',                   [CitaController::class, 'store'])->middleware($csrf);
 $router->put   ('/api/citas/{id}',              [CitaController::class, 'update'])->middleware($csrf);

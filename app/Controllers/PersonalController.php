@@ -64,8 +64,7 @@ class PersonalController extends BaseController
     public function consultaDni(Request $request): void
     {
         $dni   = $request->param('dni') ?? '';
-        $token = 'e49fddfa2a41c2c2f26d48840f7d81a66dc78dc2b0e085742a883f0ab0f84158';
-        $url   = 'https://apiperu.dev/api/dni/' . urlencode($dni) . '?api_token=' . $token;
+        $url   = 'https://api.apis.net.pe/v1/dni?numero=' . urlencode($dni);
 
         $curl = curl_init();
         curl_setopt_array($curl, [
@@ -78,10 +77,15 @@ class PersonalController extends BaseController
 
         $response = curl_exec($curl);
         $err      = curl_error($curl);
+        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
 
         if ($err) {
             throw new RuntimeException('Error al consultar servicio de DNI', 502);
+        }
+        
+        if ($httpCode === 404 || $httpCode === 422) {
+             throw new RuntimeException('DNI no encontrado en RENIEC', 404);
         }
 
         $decoded = json_decode($response, true);
@@ -89,6 +93,21 @@ class PersonalController extends BaseController
             throw new RuntimeException('Respuesta invalida del servicio de DNI', 502);
         }
 
-        $this->json($decoded);
+        // Mapear la respuesta de apis.net.pe al formato que espera el frontend
+        if (isset($decoded['nombres'])) {
+            $mapped = [
+                'success' => true,
+                'data' => [
+                    'numero' => $decoded['numeroDocumento'] ?? $dni,
+                    'nombres' => $decoded['nombres'] ?? '',
+                    'apellido_paterno' => $decoded['apellidoPaterno'] ?? '',
+                    'apellido_materno' => $decoded['apellidoMaterno'] ?? ''
+                ]
+            ];
+            $this->json($mapped);
+            return;
+        }
+
+        throw new RuntimeException('No se encontraron datos', 404);
     }
 }

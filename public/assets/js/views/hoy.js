@@ -87,9 +87,13 @@ async function cargarHoy() {
 
     if (!data.length) {
       wrap.innerHTML = `
-        <div class="gm-empty">
-          <div class="gm-empty__icon">${icon('today')}</div>
-          <p class="gm-empty__text">No hay atenciones confirmadas para hoy.</p>
+        <div class="gm-empty" style="padding: 80px 20px;">
+          <div class="gm-empty__icon" style="width:64px;height:64px;margin-bottom:12px;">${icon('today')}</div>
+          <p class="gm-empty__text" style="font-size:1.05rem;font-weight:500;color:var(--texto-primario);margin-bottom:4px;">No hay pacientes en sala de espera.</p>
+          <p class="gm-empty__text" style="margin-bottom:20px;">Las atenciones de hoy aparecerán aquí conforme lleguen.</p>
+          <button type="button" class="btn-secundario" onclick="document.querySelector('.nav-item[data-route=citas]')?.click()">
+            Revisar agenda de citas
+          </button>
         </div>`
       return
     }
@@ -179,12 +183,15 @@ async function abrirSignos(idatencion) {
 
   document.getElementById('form-signos').addEventListener('submit', async (e) => {
     e.preventDefault()
+    const btn = e.submitter || e.target.querySelector('button[type="submit"]')
+    if (btn) btn.classList.add('btn-loading')
     const body = Object.fromEntries(new FormData(e.target).entries())
     try {
       await api.post('/api/atenciones/signos', body)
       toastOk('Signos vitales registrados.')
       closeModal()
     } catch (err) { toastError(err.message) }
+    finally { if (btn) btn.classList.remove('btn-loading') }
   })
 }
 
@@ -320,6 +327,7 @@ async function abrirAtencion(idatencion) {
     e.preventDefault()
     const btn  = document.getElementById('btn-guardar-aten')
     btn.disabled = true
+    btn.classList.add('btn-loading')
 
     const fd = new FormData(e.target)
     const body = Object.fromEntries(fd.entries())
@@ -334,7 +342,9 @@ async function abrirAtencion(idatencion) {
       cargarHoy()
     } catch (err) {
       toastError(err.message)
+    } finally {
       btn.disabled = false
+      btn.classList.remove('btn-loading')
     }
   })
 }
@@ -401,12 +411,14 @@ async function abrirSubirPdf(idatencion) {
 
   document.getElementById('form-pdf-hoy').addEventListener('submit', async (e) => {
     e.preventDefault()
+    const btn = e.submitter || e.target.querySelector('button[type="submit"]')
     const nombre = e.target.querySelector('[name="nombreexamen"]').value.trim()
     if (!nombre) { toastError('Ingrese un nombre para el examen.'); return }
 
     const file = inputFile.files[0]
     if (!file || file.size === 0) { toastError('Seleccione un archivo PDF.'); return }
 
+    if (btn) btn.classList.add('btn-loading')
     const fd = new FormData(e.target)
     fd.append('idpaciente', dni)
 
@@ -423,6 +435,8 @@ async function abrirSubirPdf(idatencion) {
       closeModal()
     } catch (err) {
       toastError(err.message)
+    } finally {
+      if (btn) btn.classList.remove('btn-loading')
     }
   })
 }

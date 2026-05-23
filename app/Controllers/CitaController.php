@@ -59,6 +59,16 @@ class CitaController extends BaseController
         $this->json($data);
     }
 
+    /** GET /api/citas/rango?start=...&end=... */
+    public function rango(Request $request): void
+    {
+        $start = $request->get('start', date('Y-m-01'));
+        $end   = $request->get('end', date('Y-m-t'));
+        $filas = $this->citaService->listarEnRango($start, $end);
+        
+        $this->json($filas);
+    }
+
     /** GET /api/citas/{id} */
     public function show(Request $request): void
     {
