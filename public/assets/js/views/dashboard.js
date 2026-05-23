@@ -27,7 +27,7 @@ export async function DashboardView() {
 
       <!-- Tarjetas KPI -->
       <div class="dash-kpis">
-        <div class="dash-kpi">
+        <div class="dash-kpi" style="${(kpis.pacientes_mes || 0) == 0 ? 'opacity:0.4;' : ''}">
           <div class="dash-kpi__icon bg-azul">${icon('users')}</div>
           <div class="dash-kpi__info">
             <span class="dash-kpi__label">Pacientes Registrados</span>
@@ -35,7 +35,7 @@ export async function DashboardView() {
           </div>
         </div>
         
-        <div class="dash-kpi">
+        <div class="dash-kpi" style="${(kpis.citas_hoy || 0) == 0 ? 'opacity:0.4;' : ''}">
           <div class="dash-kpi__icon bg-ambar">${icon('clock')}</div>
           <div class="dash-kpi__info">
             <span class="dash-kpi__label">Citas de Hoy</span>
@@ -43,7 +43,7 @@ export async function DashboardView() {
           </div>
         </div>
 
-        <div class="dash-kpi">
+        <div class="dash-kpi" style="${(kpis.ingresos_hoy || 0) == 0 ? 'opacity:0.4;' : ''}">
           <div class="dash-kpi__icon bg-verde">${icon('cash')}</div>
           <div class="dash-kpi__info">
             <span class="dash-kpi__label">Ingresos del Día</span>
@@ -51,7 +51,7 @@ export async function DashboardView() {
           </div>
         </div>
 
-        <div class="dash-kpi">
+        <div class="dash-kpi" style="${(kpis.atenciones_hoy || 0) == 0 ? 'opacity:0.4;' : ''}">
           <div class="dash-kpi__icon bg-rojo">${icon('heartbeat')}</div>
           <div class="dash-kpi__info">
             <span class="dash-kpi__label">Atenciones Completadas</span>

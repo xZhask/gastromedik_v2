@@ -207,7 +207,7 @@ function abrirMovimiento() {
 }
 
 async function abrirKardex() {
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
   const html = `
     <div class="kardex-head">
       <div class="kardex-head__info">

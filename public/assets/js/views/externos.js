@@ -14,7 +14,7 @@ let ESTABLECIMIENTOS = []
 let PROCEDIMIENTOS   = []
 
 export async function ExternosView() {
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
   content().innerHTML = `
     <div class="citas-header">
       <div class="citas-header__top">
@@ -31,12 +31,12 @@ export async function ExternosView() {
       <div class="citas-header__filters">
         <div class="cont-groupbotones controls-externos">
           <div class="cont-control" style="margin:0;display:flex;align-items:center;gap:6px;">
-            <label style="white-space:nowrap;">De:</label>
-            <input type="date" id="ext-desde" value="${hoy}" />
+            <label style="white-space:nowrap; font-weight: 500;">De:</label>
+            <input type="date" id="ext-desde" value="${hoy}" style="border: 1px solid var(--borde-sutil); border-radius: 6px; padding: 0 12px; height: 36px; background: var(--blanco); outline: none; font-family: inherit;" />
           </div>
           <div class="cont-control" style="margin:0;display:flex;align-items:center;gap:6px;">
-            <label style="white-space:nowrap;">a:</label>
-            <input type="date" id="ext-hasta" value="${hoy}" />
+            <label style="white-space:nowrap; font-weight: 500;">a:</label>
+            <input type="date" id="ext-hasta" value="${hoy}" style="border: 1px solid var(--borde-sutil); border-radius: 6px; padding: 0 12px; height: 36px; background: var(--blanco); outline: none; font-family: inherit;" />
           </div>
           <div class="cont-control" style="margin:0;">
             <select id="ext-estab"></select>
@@ -84,7 +84,9 @@ async function cargar() {
         <div class="gm-empty">
           <div class="gm-empty__icon">${icon('external')}</div>
           <p class="gm-empty__text">Sin citas externas en el período.</p>
+          <button class="btn-primario" id="btn-vacio-ext" style="margin-top:12px;">${icon('plus')} Registrar cita externa</button>
         </div>`
+      document.getElementById('btn-vacio-ext')?.addEventListener('click', abrirFormCitaExt)
       return
     }
 
@@ -134,7 +136,7 @@ function bindEventos() {
 }
 
 function abrirFormCitaExt() {
-  const hoy   = new Date().toISOString().split('T')[0]
+  const hoy   = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
   const optsE = ESTABLECIMIENTOS.map(e => `<option value="${e.idhospital}">${e.nombre}</option>`).join('')
   const optsP = PROCEDIMIENTOS.map(p => `<option value="${p.idtipoatencion}" data-precio="${p.precio}">${p.nombre}</option>`).join('')
 

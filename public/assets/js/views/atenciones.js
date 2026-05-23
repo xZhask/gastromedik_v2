@@ -18,7 +18,7 @@ const content = () => document.getElementById('app-content')
 const CARGO   = parseInt(document.querySelector('meta[name="user-cargo"]')?.content ?? '0')
 
 export async function AtencionesView() {
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
 
   content().innerHTML = `
     <div class="citas-header">
@@ -51,7 +51,7 @@ function bindEventos() {
   el.querySelector('#btn-aten-prev')?.addEventListener('click', () => cambiarFecha(-1))
   el.querySelector('#btn-aten-next')?.addEventListener('click', () => cambiarFecha(+1))
   el.querySelector('#btn-aten-hoy')?.addEventListener('click', () => {
-    document.getElementById('fecha-aten').value = new Date().toISOString().split('T')[0]
+    document.getElementById('fecha-aten').value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
     cargar()
   })
 
@@ -71,7 +71,7 @@ function cambiarFecha(dias) {
   if (!input) return
   const d = new Date(input.value + 'T00:00:00')
   d.setDate(d.getDate() + dias)
-  input.value = d.toISOString().split('T')[0]
+  input.value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0]
   cargar()
 }
 
@@ -80,7 +80,7 @@ async function cargar() {
   if (!wrap) return
   wrap.innerHTML = skeletonTable(5, 4)
 
-  const fecha = document.getElementById('fecha-aten')?.value ?? new Date().toISOString().split('T')[0]
+  const fecha = document.getElementById('fecha-aten')?.value ?? new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
   actualizarLabelFecha(fecha)
 
   try {
@@ -143,21 +143,27 @@ async function abrirHistorial(idatencion, dni) {
     ])
 
     const liItems = lista.length
-      ? lista.map(at => `
+      ? lista.map(at => {
+          const isPending = !at.fecha || at.fecha === 'null' || !at.nombre || at.nombre === 'null';
+          const dateStr = (at.fecha && at.fecha !== 'null') ? at.fecha : (at.fechacita || 'Fecha pendiente');
+          const titleStr = (at.nombre && at.nombre !== 'null') ? escapeHtml(at.nombre) : '-';
+          const badge = isPending ? ` <span class="badge badge-ambar" style="font-size:0.65em; padding:2px 6px;">Sin atender</span>` : '';
+          return `
           <li>
             <button class="hist-item" data-idaten="${at.idatencion}">
-              <span class="hist-item__date">${at.fecha}</span>
-              <span class="hist-item__title">${escapeHtml(at.nombre)}</span>
+              <span class="hist-item__date">${dateStr}${badge}</span>
+              <span class="hist-item__title">${titleStr}</span>
             </button>
-          </li>`).join('')
+          </li>`
+        }).join('')
       : '<li class="hist-empty">Sin más registros.</li>'
 
     const html = `
-      <div class="hist-head">
+      <div class="hist-head" style="position: sticky; top: 0; z-index: 10; background: var(--superficie); padding-bottom: 16px; border-bottom: 1px solid var(--borde-sutil);">
         <div class="gm-avatar gm-avatar--lg">${iniciales(`${pac.nombre ?? ''} ${pac.apellidos ?? ''}`)}</div>
         <div>
           <h2 class="hist-head__name">${escapeHtml(pac.apellidos ?? '')}, ${escapeHtml(pac.nombre ?? '')}</h2>
-          <p class="hist-head__meta">DNI ${escapeHtml(pac.dni ?? dni)} · ${pac.edad ?? '—'} años</p>
+          <p class="hist-head__meta">DNI ${escapeHtml(pac.dni ?? dni)} · ${pac.edad && pac.edad !== '0' && pac.edad !== '0000-00-00' ? pac.edad : '—'} años</p>
         </div>
       </div>
       <div class="historial-layout">
@@ -198,7 +204,7 @@ function renderConsultaSOAP(a) {
     { label: 'T°',   value: a.temp, unit: '°C' },
     { label: 'SO₂',  value: a.so2,  unit: '%' },
     { label: 'Peso', value: a.peso, unit: 'kg' },
-  ].filter(s => s.value && s.value !== '-')
+  ].filter(s => s.value && s.value !== '-' && s.value !== 'null' && String(s.value).trim() !== '')
 
   const signosHtml = signos.length
     ? `<div class="signos-grid">
@@ -211,10 +217,10 @@ function renderConsultaSOAP(a) {
     : ''
 
   const seccion = (titulo, contenido) =>
-    contenido && contenido !== '-' && contenido.trim()
+    contenido && contenido !== '-' && contenido !== 'null' && String(contenido).trim()
       ? `<section class="soap-section">
            <h4>${titulo}</h4>
-           <p>${escapeHtml(contenido).replace(/\n/g, '<br/>')}</p>
+           <div class="soap-section__content"><p>${escapeHtml(contenido).replace(/\n/g, '<br/>')}</p></div>
          </section>`
       : ''
 

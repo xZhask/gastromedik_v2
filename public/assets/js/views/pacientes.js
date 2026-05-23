@@ -66,6 +66,7 @@ async function cargarPacientes() {
       columns: buildColumns(),
       rows:    data.map(p => ({ ...p, _id: p.dni })),
       emptyMsg: 'No se encontraron pacientes.',
+      rowClass: r => (!r.nombre || !r.apellidos || !r.edad || r.edad === '0' || r.edad === '0000-00-00') ? 'tr-incompleto' : ''
     }))
   } catch (err) {
     wrap.innerHTML = `<div class="state-error">${err.message}</div>`
@@ -108,34 +109,56 @@ function buildColumns() {
   const cols = [
     {
       label: 'Paciente',
-      render: r => `
+      render: r => {
+        const isIncompleto = !r.nombre || !r.apellidos || !r.edad || r.edad === '0' || r.edad === '0000-00-00';
+        const ap = toTitleCase(r.apellidos);
+        const nom = toTitleCase(r.nombre);
+        const fullName = isIncompleto ? `Registro incompleto <span style="font-size:11px; font-weight:500; padding:2px 8px; border-radius:99px; background:#FAEEDA; color:#854F0B; margin-left:8px;">Completar datos</span>` : `${escapeHtml(ap)}, ${escapeHtml(nom)}`;
+        const edadText = (!r.edad || r.edad === '0' || r.edad === '0000-00-00') ? 'edad —' : `${r.edad} años`;
+        const metaText = `DNI ${escapeHtml(r.dni)} · ${edadText}${r.sexo ? ' · ' + r.sexo : ''}`;
+
+        return `
         <div class="pac-cell">
-          <div class="gm-avatar">${iniciales(r.nombre, r.apellidos)}</div>
-          <div class="pac-cell__info">
-            <span class="pac-cell__name">${escapeHtml(r.apellidos)}, ${escapeHtml(r.nombre)}</span>
-            <span class="pac-cell__meta">DNI ${escapeHtml(r.dni)} · ${r.edad} años</span>
+          <div class="gm-avatar" ${isIncompleto ? 'style="background: #FAEEDA; color: #854F0B;"' : ''}>
+            ${isIncompleto ? icon('alert-triangle') : iniciales(r.nombre, r.apellidos)}
           </div>
-        </div>`,
+          <div class="pac-cell__info">
+            <span class="pac-cell__name">${fullName}</span>
+            <span class="pac-cell__meta">${metaText}</span>
+          </div>
+        </div>`
+      },
     },
     {
       key: 'telefono',
       label: 'Teléfono',
       align: 'center',
-      render: r => r.telefono
-        ? `<a href="tel:${r.telefono}" class="link-tel">${r.telefono}</a>`
-        : '<span class="muted">—</span>',
+      render: r => {
+        if (!r.telefono) return '<span class="muted">—</span>';
+        const t = String(r.telefono).replace(/(\d{3})(?=\d)/g, '$1 ').trim();
+        return `<a href="tel:${r.telefono}" class="link-tel" style="font-size:13px; text-decoration:none; color:#185FA5;">${t}</a>`
+      }
     },
     {
       label: 'Acciones',
       align: 'right',
-      render: r => `
+      render: r => {
+        const isIncompleto = !r.nombre || !r.apellidos || !r.edad || r.edad === '0' || r.edad === '0000-00-00';
+        if (isIncompleto) {
+          return `
+          <div class="pac-actions">
+            ${[1,4].includes(CARGO) ? `<button class="icon-btn icon-info" style="background:#E6F1FB; color:#185FA5;" data-action="editar" title="Completar datos">${icon('edit')}</button>` : ''}
+          </div>`
+        }
+        return `
         <div class="pac-actions">
           ${[1,2,4].includes(CARGO) ? iconBtn('history','historial','Ver historial','icon-info') : ''}
-          ${iconBtn('image','imagenes','Ver imágenes','icon-ocre')}
-          ${iconBtn('pdf','pdfs','Ver PDFs','icon-ocre')}
-          ${[1,4].includes(CARGO) ? iconBtn('edit','editar','Editar','icon-edit') : ''}
+          ${iconBtn('image','imagenes','Ver imágenes','icon-muted')}
+          ${iconBtn('pdf','pdfs','Ver PDFs','icon-muted')}
+          ${[1,4].includes(CARGO) ? iconBtn('edit','editar','Editar','icon-muted') : ''}
           ${[1,4].includes(CARGO) ? iconBtn('trash','eliminar','Eliminar','icon-danger') : ''}
-        </div>`,
+        </div>`
+      },
     },
   ]
   return cols
@@ -144,7 +167,12 @@ function buildColumns() {
 function iniciales(nombre = '', apellidos = '') {
   const n = (nombre || '').trim().split(/\s+/)[0]?.[0] ?? ''
   const a = (apellidos || '').trim().split(/\s+/)[0]?.[0] ?? ''
-  return (n + a).toUpperCase() || '·'
+  const res = (n + a).toUpperCase();
+  return res || '⚠️'
+}
+
+function toTitleCase(str) {
+  return (str || '').toLowerCase().replace(/(?:^|\s|-)\S/g, c => c.toUpperCase());
 }
 
 function escapeHtml(s) {

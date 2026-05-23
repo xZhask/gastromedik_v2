@@ -1,0 +1,72 @@
+<div style="padding: 1rem 0;">
+<h2 class="sr-only">Mejora del modal de historial clínico de Gastro-Medik</h2>
+
+<style>
+.hc { font-family: var(--font-sans); background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); overflow: hidden; }
+.hc-head { display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.hc-av { width: 44px; height: 44px; border-radius: 50%; background: #E6F1FB; color: #185FA5; display: flex; align-items: center; justify-content: center; font-weight: 500; font-size: 15px; }
+.hc-body { display: flex; }
+.hc-aside { width: 200px; border-right: 0.5px solid var(--color-border-tertiary); padding: 12px; flex-shrink: 0; }
+.hc-aside h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--color-text-tertiary); font-weight: 500; margin: 0 0 8px; }
+.hc-item { display: block; width: 100%; text-align: left; padding: 8px 10px; border-radius: 8px; border: 0.5px solid transparent; background: transparent; cursor: pointer; margin-bottom: 4px; }
+.hc-item.on { background: #E6F1FB; border-color: #B5D4F4; }
+.hc-item .d { font-size: 12px; color: var(--color-text-primary); font-weight: 500; }
+.hc-item .t { font-size: 11px; color: var(--color-text-secondary); margin-top: 1px; }
+.hc-item.pend { opacity: .85; }
+.hc-pend-tag { font-size: 10px; font-weight: 500; padding: 1px 6px; border-radius: 99px; background: #FAEEDA; color: #854F0B; }
+.hc-panel { flex: 1; padding: 16px 18px; min-width: 0; }
+.hc-vitals { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 16px; }
+.hc-vital { background: var(--color-background-secondary); border-radius: 8px; padding: 8px 10px; }
+.hc-vital .l { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: var(--color-text-tertiary); font-weight: 500; }
+.hc-vital .v { font-size: 16px; font-weight: 500; color: var(--color-text-primary); font-variant-numeric: tabular-nums; }
+.hc-vital .v small { font-size: 11px; color: var(--color-text-secondary); font-weight: 400; }
+.hc-sec { border-left: 2px solid #B5D4F4; padding: 2px 0 2px 12px; margin-bottom: 14px; }
+.hc-sec h5 { font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: #185FA5; font-weight: 500; margin: 0 0 4px; }
+.hc-sec p { font-size: 13px; color: var(--color-text-primary); line-height: 1.55; margin: 0; }
+</style>
+
+<div class="hc">
+  <div class="hc-head">
+    <div class="hc-av">MM</div>
+    <div style="flex:1;">
+      <div style="font-size:15px; font-weight:500;">Manayalle Mundaca, María Victoria</div>
+      <div style="font-size:12px; color:var(--color-text-secondary);">DNI 27412948 · 61 años · F · Nac. 1965-03-29</div>
+    </div>
+    <a style="font-size:12px; color:#185FA5; border:0.5px solid #B5D4F4; padding:6px 12px; border-radius:8px;"><i class="ti ti-file-text" style="vertical-align:-2px"></i> Ver receta</a>
+  </div>
+  <div class="hc-body">
+    <div class="hc-aside">
+      <h4>Consultas</h4>
+      <button class="hc-item on">
+        <div class="d">12 mar 2026</div>
+        <div class="t">Constipación · diverticulosis</div>
+      </button>
+      <button class="hc-item">
+        <div class="d">21 ene 2026</div>
+        <div class="t">Pólipos · control</div>
+      </button>
+      <button class="hc-item pend">
+        <div class="d">03 ene 2026 <span class="hc-pend-tag">Sin atender</span></div>
+        <div class="t">Trombectomía</div>
+      </button>
+    </div>
+    <div class="hc-panel">
+      <div class="hc-vitals">
+        <div class="hc-vital"><div class="l">FC</div><div class="v">73 <small>lpm</small></div></div>
+        <div class="hc-vital"><div class="l">PA</div><div class="v">112/64 <small>mmHg</small></div></div>
+        <div class="hc-vital"><div class="l">T°</div><div class="v">36.4 <small>°C</small></div></div>
+        <div class="hc-vital"><div class="l">SO₂</div><div class="v">98 <small>%</small></div></div>
+        <div class="hc-vital"><div class="l">Peso</div><div class="v">56 <small>kg</small></div></div>
+      </div>
+      <div class="hc-sec">
+        <h5>Diagnóstico</h5>
+        <p>Gastritis crónica HP+, pólipo de cuerpo y atrofia antro-corporal. Colon diverticular de sigmoides con pólipo. Hiato grado I.</p>
+      </div>
+      <div class="hc-sec">
+        <h5>Tratamiento</h5>
+        <p>Gx 30, S×1. Control con biopsia.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</div>

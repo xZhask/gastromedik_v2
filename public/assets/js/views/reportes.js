@@ -7,7 +7,7 @@ import { skeletonTable } from '../components/skeleton.js'
 const content = () => document.getElementById('app-content')
 
 export async function ReportesView() {
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
   
   content().innerHTML = `
     <div class="citas-header">

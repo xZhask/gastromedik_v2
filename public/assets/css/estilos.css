@@ -337,8 +337,8 @@ fieldset.mgt5 { margin-top: 5px; }
 .confirm-actions { display: flex; gap: 10px; justify-content: center; margin-top: 8px; }
 
 /* 12. UTILITARIOS ───────────────────────────────────────────────────────────── */
-.ta-center { text-align: center; }
-.ta-right  { text-align: right; }
+.ta-center { text-align: center !important; }
+.ta-right  { text-align: right !important; }
 .w30 { width: 30%; }
 .w60 { width: 60%; }
 .w70 { width: 70%; }
@@ -2053,3 +2053,5 @@ fieldset.mgt5 { margin-top: 5px; }
   position: relative;
   width: 100%;
 }
+
+.tr-incompleto { background: #FAEEDA22; }

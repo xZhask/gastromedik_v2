@@ -26,7 +26,7 @@ let CITAS_CACHE    = []
 // ── Punto de entrada ──────────────────────────────────────────────────────────
 
 export async function CitasView() {
-  const hoy = new Date().toISOString().split('T')[0]
+  const hoy = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
 
   content().innerHTML = `
     <div class="citas-header">
@@ -53,22 +53,22 @@ export async function CitasView() {
         </div>
       </div>
 
-      <div class="citas-stats" id="citas-stats" hidden>
-        <div class="gm-stat gm-stat--verde">
+      <div class="citas-stats" id="citas-stats" hidden style="display:flex; gap:16px; margin-top:16px; margin-bottom:-8px;">
+        <div class="gm-stat" id="stat-card-pagadas" style="flex:1; padding: 12px; transition: opacity 0.2s;">
           <span class="gm-stat__label">Pagadas</span>
-          <span class="gm-stat__value" id="stat-pagadas">0</span>
+          <span class="gm-stat__value" id="stat-pagadas" style="color: var(--verde);">0</span>
         </div>
-        <div class="gm-stat gm-stat--rojo">
+        <div class="gm-stat" id="stat-card-por-pagar" style="flex:1; padding: 12px; transition: opacity 0.2s;">
           <span class="gm-stat__label">Por pagar</span>
-          <span class="gm-stat__value" id="stat-por-pagar">0</span>
+          <span class="gm-stat__value" id="stat-por-pagar" style="color: var(--rojo);">0</span>
         </div>
-        <div class="gm-stat gm-stat--ambar">
+        <div class="gm-stat" id="stat-card-cuenta" style="flex:1; padding: 12px; transition: opacity 0.2s;">
           <span class="gm-stat__label">A cuenta</span>
-          <span class="gm-stat__value" id="stat-cuenta">0</span>
+          <span class="gm-stat__value" id="stat-cuenta" style="color: var(--ambar);">0</span>
         </div>
-        <div class="gm-stat">
+        <div class="gm-stat" id="stat-card-anuladas" style="flex:1; padding: 12px; transition: opacity 0.2s;">
           <span class="gm-stat__label">Anuladas</span>
-          <span class="gm-stat__value" id="stat-anuladas">0</span>
+          <span class="gm-stat__value" id="stat-anuladas" style="color: var(--gris);">0</span>
         </div>
       </div>
     </div>
@@ -91,7 +91,7 @@ async function cargarCitas() {
   if (!wrap) return
   wrap.innerHTML = skeletonTable(6, 5)
 
-  const fecha = document.getElementById('fecha-citas')?.value ?? new Date().toISOString().split('T')[0]
+  const fecha = document.getElementById('fecha-citas')?.value ?? new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
   actualizarLabelFecha(fecha)
 
   try {
@@ -149,6 +149,11 @@ function actualizarContadores(data) {
   document.getElementById('stat-por-pagar').textContent = c.porPagar
   document.getElementById('stat-cuenta').textContent    = c.cuenta
   document.getElementById('stat-anuladas').textContent  = c.anuladas
+
+  document.getElementById('stat-card-pagadas').style.opacity = c.pagadas === 0 ? '0.4' : '1'
+  document.getElementById('stat-card-por-pagar').style.opacity = c.porPagar === 0 ? '0.4' : '1'
+  document.getElementById('stat-card-cuenta').style.opacity = c.cuenta === 0 ? '0.4' : '1'
+  document.getElementById('stat-card-anuladas').style.opacity = c.anuladas === 0 ? '0.4' : '1'
 }
 
 function renderVacio(fecha) {
@@ -276,7 +281,7 @@ function bindEventos() {
   el.querySelector('#btn-fecha-prev')?.addEventListener('click', () => cambiarFecha(-1))
   el.querySelector('#btn-fecha-next')?.addEventListener('click', () => cambiarFecha(+1))
   el.querySelector('#btn-fecha-hoy')?.addEventListener('click', () => {
-    document.getElementById('fecha-citas').value = new Date().toISOString().split('T')[0]
+    document.getElementById('fecha-citas').value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
     cargarCitas()
   })
 
@@ -309,7 +314,7 @@ function cambiarFecha(dias) {
   if (!input) return
   const d = new Date(input.value + 'T00:00:00')
   d.setDate(d.getDate() + dias)
-  input.value = d.toISOString().split('T')[0]
+  input.value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0]
   cargarCitas()
 }
 
@@ -344,7 +349,7 @@ export async function abrirFormCita(cita = null, fechaDefecto = null, onSaved = 
   }
 
   const isEdit = cita !== null
-  const hoy    = fechaDefecto || new Date().toISOString().split('T')[0]
+  const hoy    = fechaDefecto || new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0]
 
   const optsProc = PROCEDIMIENTOS.map(p =>
     `<option value="${p.idtipoatencion}" data-precio="${p.precio}"

@@ -76,8 +76,10 @@ export async function CalendarioView() {
     let startD = calendar.getDateRangeStart();
     let endD = calendar.getDateRangeEnd();
     
-    const start = (startD.toDate ? startD.toDate() : new Date(startD)).toISOString().split('T')[0];
-    const end   = (endD.toDate ? endD.toDate() : new Date(endD)).toISOString().split('T')[0];
+    const sD = startD.toDate ? startD.toDate() : new Date(startD);
+    const eD = endD.toDate ? endD.toDate() : new Date(endD);
+    const start = new Date(sD.getTime() - sD.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    const end   = new Date(eD.getTime() - eD.getTimezoneOffset() * 60000).toISOString().split('T')[0];
 
     try {
       const res = await api.get('/api/citas/rango', { start, end })
@@ -121,7 +123,7 @@ export async function CalendarioView() {
   calendar.on('selectDateTime', (eventObj) => {
     let d = eventObj.start;
     let dateObj = d.toDate ? d.toDate() : new Date(d);
-    const fechaClick = dateObj.toISOString().split('T')[0];
+    const fechaClick = new Date(dateObj.getTime() - dateObj.getTimezoneOffset() * 60000).toISOString().split('T')[0];
     
     abrirFormCita(null, fechaClick, fetchEvents);
     calendar.clearGridSelections();
