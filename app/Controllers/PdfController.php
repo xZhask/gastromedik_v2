@@ -166,7 +166,7 @@ class PdfController
     private function renderTicket(int $idCita, array $cita, ?array $movimiento): string
     {
         $logo  = $this->assetPath('img/logoticket2.png');
-        $monto = (float) ($movimiento['monto'] ?? 0);
+        $monto = $this->caja->sumarIngresosPorCita($idCita);
         $precio = (float) ($cita['precio_consulta'] ?? 0);
         $saldo  = max(0, $precio - $monto);
         $tipoPago = strtoupper((string) ($movimiento['tipopago'] ?? 'EFECTIVO'));
@@ -174,6 +174,9 @@ class PdfController
 
         $paciente  = trim(($cita['apellidospaciente'] ?? '') . ', ' . ($cita['nombrepaciente'] ?? ''), ', ');
         $fechaHora = date('d/m/Y H:i');
+        
+        $fechaCitaStr = ($cita['fecha'] ?? '') . ' ' . ($cita['horario'] ?? '00:00:00');
+        $isFuture = strtotime($fechaCitaStr) > time();
 
         return '<body class="bodyticket">
             <div class="ticket">
@@ -213,7 +216,8 @@ class PdfController
 
                 <div class="ticket-block">
                     <h2 class="ticket-block__title">Detalle</h2>
-                    <p class="ticket-data ticket-data--motivo">' . $this->e($cita['motivo'] ?? '—') . '</p>
+                    <p class="ticket-data ticket-data--motivo">Pago por ' . $this->e($cita['motivo'] ?? '—') . '</p>' .
+                    ($isFuture ? '
                     <table class="ticket-detalle">
                         <tr>
                             <td>Fecha cita</td>
@@ -223,7 +227,7 @@ class PdfController
                             <td>Hora</td>
                             <td class="ticket-detalle__val">' . $this->e(substr((string)($cita['horario'] ?? ''), 0, 5)) . '</td>
                         </tr>
-                    </table>
+                    </table>' : '') . '
                 </div>
 
                 <div class="ticket-sep"></div>
@@ -258,7 +262,7 @@ class PdfController
                 <div class="ticket-sep"></div>
 
                 <footer class="ticket-foot">
-                    <p>Documento informativo.<br>No constituye comprobante de pago.</p>
+                    <p>Este documento es informativo y no un comprobante de pago.</p>
                     <p class="ticket-foot__thanks">¡Gracias por su preferencia!</p>
                 </footer>
 

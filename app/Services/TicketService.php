@@ -39,8 +39,9 @@ class TicketService
         $cita['id'] = $cita['idcita'];
 
         $movimiento = $this->caja->findMovimientoPorCita($idCita) ?? [];
+        $totalPagado = $this->caja->sumarIngresosPorCita($idCita);
 
-        return compact('cita', 'movimiento');
+        return compact('cita', 'movimiento', 'totalPagado');
     }
 
     /**
@@ -62,6 +63,7 @@ class TicketService
         $org    = config('printers.organization');
         $cita   = $data['cita'];
         $movimiento = $data['movimiento'];
+        $totalPagado = $data['totalPagado'] ?? 0;
 
         $connector = new WindowsPrintConnector($config['name']);
         $printer   = new Printer($connector);
@@ -101,18 +103,31 @@ class TicketService
 
             // Datos de la cita
             $printer->text('---- DATOS DE CITA ------' . "\n");
-            $printer->text('FECHA    : ' . ($cita['fecha']    ?? '') . "\n");
-            $printer->text('HORA     : ' . ($cita['horario']  ?? '') . "\n");
-            $printer->text('MOTIVO   : ' . ($cita['motivo']   ?? '') . "\n");
-            $printer->text('PRECIO   : ' . ($cita['precio_consulta'] ?? '') . "\n");
-
-            $monto = number_format((float) ($movimiento['monto'] ?? 0), 2);
-            $printer->text('A CUENTA : ' . $monto . "\n");
+            
+            $fechaCitaStr = ($cita['fecha'] ?? '') . ' ' . ($cita['horario'] ?? '00:00:00');
+            $isFuture = strtotime($fechaCitaStr) > time();
+            
+            if ($isFuture) {
+                $printer->text('FECHA    : ' . ($cita['fecha']    ?? '') . "\n");
+                $printer->text('HORA     : ' . substr((string)($cita['horario'] ?? ''), 0, 5) . "\n");
+            }
+            
+            $printer->text('MOTIVO   : Pago por ' . ($cita['motivo']   ?? '') . "\n");
+            
+            $precio = (float) ($cita['precio_consulta'] ?? 0);
+            $saldo  = max(0, $precio - $totalPagado);
+            
+            $printer->text('PRECIO   : ' . number_format($precio, 2) . "\n");
+            $printer->text('PAGADO   : ' . number_format((float) $totalPagado, 2) . "\n");
+            
+            if ($saldo > 0) {
+                $printer->text('SALDO    : ' . number_format($saldo, 2) . "\n");
+            }
 
             // Pie
             $printer->text('--------------------------------------------' . "\n");
             $printer->setJustification(Printer::JUSTIFY_CENTER);
-            $printer->text(($org['note']   ?? 'Este no es un comprobante de Pago.') . "\n");
+            $printer->text('Este documento es informativo y no un comprobante de pago.' . "\n");
             $printer->text(($org['footer'] ?? 'Gracias por su gentil preferencia') . "\n");
 
             $printer->feed(3);

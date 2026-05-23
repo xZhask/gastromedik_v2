@@ -40,10 +40,24 @@ class AppointmentTicket implements TicketTemplateInterface
         $fecha    = htmlspecialchars($cita['fecha']   ?? '');
         $hora     = htmlspecialchars($cita['horario'] ?? '');
         $motivo   = htmlspecialchars($cita['motivo']  ?? '');
-        $precio   = htmlspecialchars((string) ($cita['precio_consulta'] ?? ''));
-        $monto    = number_format((float) ($movimiento['monto'] ?? 0), 2);
+        $precio   = (float) ($cita['precio_consulta'] ?? 0);
+        $monto    = (float) ($data['totalPagado'] ?? 0);
+        $saldo    = max(0, $precio - $monto);
+        
+        $precioStr = number_format($precio, 2);
+        $montoStr  = number_format($monto, 2);
+        $saldoStr  = number_format($saldo, 2);
+
         $ahora    = date('d-m-Y H:i:s');
         $idCita   = $cita['idcita'] ?? $cita['id'] ?? '';
+        
+        $fechaCitaStr = ($cita['fecha'] ?? '') . ' ' . ($cita['horario'] ?? '00:00:00');
+        $isFuture = strtotime($fechaCitaStr) > time();
+
+        $htmlFechaHora = $isFuture ? 
+            "FECHA: {$fecha}<br>\n        HORA: " . substr($hora, 0, 5) . "<br>" : "";
+            
+        $htmlSaldo = $saldo > 0 ? "<br>SALDO: {$saldoStr}" : "";
 
         return <<<HTML
 <div style="font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.5;">
@@ -67,14 +81,13 @@ class AppointmentTicket implements TicketTemplateInterface
     </div>
     <div style="border-top: 1px solid #000; border-bottom: 1px solid #000; padding: 8px 0; margin: 8px 0; font-size: 11px;">
         <strong>DATOS DE CITA</strong><br>
-        FECHA: {$fecha}<br>
-        HORA: {$hora}<br>
-        MOTIVO: {$motivo}<br>
-        PRECIO: {$precio}<br>
-        A CUENTA: {$monto}
+        {$htmlFechaHora}
+        MOTIVO: Pago por {$motivo}<br>
+        PRECIO: {$precioStr}<br>
+        PAGADO: {$montoStr}{$htmlSaldo}
     </div>
     <div style="text-align: center; font-size: 10px; margin-top: 12px; line-height: 1.5;">
-        <strong>{$org['note']}</strong><br>
+        <strong>Este documento es informativo y no un comprobante de pago.</strong><br>
         {$org['footer']}
     </div>
 </div>

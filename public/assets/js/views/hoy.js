@@ -57,6 +57,10 @@ export async function HoyView() {
     if (btn.dataset.action === 'signos')   await abrirSignos(idatencion)
     if (btn.dataset.action === 'atender')  await abrirAtencion(idatencion)
     if (btn.dataset.action === 'archivo')  await abrirSubirPdf(idatencion)
+    if (btn.dataset.action === 'ticket') {
+      const idcita = parseInt(tr?.dataset.idcita)
+      if (idcita) abrirTicket(idcita)
+    }
   }
 }
 
@@ -127,16 +131,29 @@ async function cargarHoy() {
           align: 'center',
           render: () => iconBtn('heartbeat', 'signos', 'Registrar signos vitales', 'icon-verde'),
         },
-        ...([1,2].includes(CARGO) ? [{
-          label: 'Atención', align: 'center',
-          render: r => r.es_consulta || r.atencion_estado === 'EN PROGR'
-            ? iconBtn('calendar', 'atender', 'Registrar atención', 'icon-azul')
-            : iconBtn('pdf', 'archivo', 'Subir archivo', 'icon-ocre'),
-        }] : []),
+        {
+          label: 'Acciones', align: 'center',
+          render: r => {
+            const ticketBtn = (r.estado === 'A CUENTA' || r.estado === 'PAGADO')
+              ? iconBtn('print', 'ticket', 'Imprimir ticket', 'icon-info')
+              : '';
+            const mainAction = ([1,2].includes(CARGO))
+              ? (r.es_consulta || r.atencion_estado === 'EN PROGR'
+                  ? iconBtn('calendar', 'atender', 'Registrar atención', 'icon-azul')
+                  : iconBtn('pdf', 'archivo', 'Subir archivo', 'icon-ocre'))
+              : '';
+            return `<div class="pac-actions" style="justify-content:center;">${ticketBtn}${mainAction}</div>`;
+          }
+        }
       ],
       rows,
       rowClass: r => r.tiene_pendientes ? 'tr-pendiente' : '',
     }))
+    
+    // Asignar dataset idcita a los tr
+    document.querySelectorAll('#tabla-hoy-wrap tbody tr').forEach((tr, i) => {
+      if (rows[i]) tr.dataset.idcita = rows[i].idcita ?? rows[i].id;
+    })
   } catch (err) {
     wrap.innerHTML = `<div class="state-error">${err.message}</div>`
   }
@@ -439,5 +456,13 @@ async function abrirSubirPdf(idatencion) {
       if (btn) btn.classList.remove('btn-loading')
     }
   })
+}
+
+function abrirTicket(idcita) {
+  const w = 800, h = 700
+  const x = Math.round(screen.width  / 2 - w / 2)
+  const y = Math.round(screen.height / 2 - h / 2)
+  window.open(`/pdf/ticket/${idcita}`, '_ticket',
+    `left=${x},top=${y},width=${w},height=${h},scrollbars=yes,menubar=no`)
 }
 
