@@ -18,7 +18,7 @@ return [
         'connector'  => 'windows',  // windows, usb, network
         'width'      => 80,         // mm
         'timeout'    => 30,         // segundos
-        'logo_path'  => BASE_PATH . '/recursos/impresionticket/logoticket.png',
+        'logo_path'  => '',
         'enabled'    => env('PRINTER_THERMAL_ENABLED', true),
     ],
 

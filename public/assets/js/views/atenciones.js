@@ -147,31 +147,31 @@ async function abrirHistorial(idatencion, dni) {
           const isPending = !at.fecha || at.fecha === 'null' || !at.nombre || at.nombre === 'null';
           const dateStr = (at.fecha && at.fecha !== 'null') ? at.fecha : (at.fechacita || 'Fecha pendiente');
           const titleStr = (at.nombre && at.nombre !== 'null') ? escapeHtml(at.nombre) : '-';
-          const badge = isPending ? ` <span class="badge badge-ambar" style="font-size:0.65em; padding:2px 6px;">Sin atender</span>` : '';
+          const badge = isPending ? ` <span class="hc-pend-tag">Sin atender</span>` : '';
           return `
-          <li>
-            <button class="hist-item" data-idaten="${at.idatencion}">
-              <span class="hist-item__date">${dateStr}${badge}</span>
-              <span class="hist-item__title">${titleStr}</span>
-            </button>
-          </li>`
+          <button class="hc-item ${isPending ? 'pend' : ''}" data-idaten="${at.idatencion}">
+            <div class="d">${dateStr}${badge}</div>
+            <div class="t">${titleStr}</div>
+          </button>`
         }).join('')
-      : '<li class="hist-empty">Sin más registros.</li>'
+      : '<div class="hc-empty">Sin más registros.</div>'
 
     const html = `
-      <div class="hist-head" style="position: sticky; top: 0; z-index: 10; background: var(--superficie); padding-bottom: 16px; border-bottom: 1px solid var(--borde-sutil);">
-        <div class="gm-avatar gm-avatar--lg">${iniciales(`${pac.nombre ?? ''} ${pac.apellidos ?? ''}`)}</div>
-        <div>
-          <h2 class="hist-head__name">${escapeHtml(pac.apellidos ?? '')}, ${escapeHtml(pac.nombre ?? '')}</h2>
-          <p class="hist-head__meta">DNI ${escapeHtml(pac.dni ?? dni)} · ${pac.edad && pac.edad !== '0' && pac.edad !== '0000-00-00' ? pac.edad : '—'} años</p>
+      <div class="hc">
+        <div class="hc-head">
+          <div class="hc-av">${iniciales(`${pac.nombre ?? ''} ${pac.apellidos ?? ''}`)}</div>
+          <div style="flex:1;">
+            <div class="hc-head-name">${escapeHtml(pac.apellidos ?? '')}, ${escapeHtml(pac.nombre ?? '')}</div>
+            <div class="hc-head-meta">DNI ${escapeHtml(pac.dni ?? dni)} · ${pac.edad && pac.edad !== '0' && pac.edad !== '0000-00-00' ? pac.edad : '—'} años</div>
+          </div>
         </div>
-      </div>
-      <div class="historial-layout">
-        <aside class="historial-aside">
-          <h4>Historial</h4>
-          <ul class="hist-list">${liItems}</ul>
-        </aside>
-        <div class="historial-panel" id="hist-panel">${renderConsultaSOAP(a)}</div>
+        <div class="hc-body">
+          <div class="hc-aside">
+            <h4>Historial</h4>
+            ${liItems}
+          </div>
+          <div class="hc-panel" id="hist-panel">${renderConsultaSOAP(a)}</div>
+        </div>
       </div>`
 
     openModal(html, { wide: true })
@@ -179,6 +179,10 @@ async function abrirHistorial(idatencion, dni) {
     document.getElementById('modal-content').addEventListener('click', async (e) => {
       const btn = e.target.closest('[data-idaten]')
       if (!btn) return
+      
+      document.querySelectorAll('.hc-item').forEach(el => el.classList.remove('on'))
+      btn.classList.add('on')
+      
       const panel = document.getElementById('hist-panel')
       panel.innerHTML = `<div class="state-loading"><div class="spinner"></div></div>`
       try {
@@ -207,36 +211,40 @@ function renderConsultaSOAP(a) {
   ].filter(s => s.value && s.value !== '-' && s.value !== 'null' && String(s.value).trim() !== '')
 
   const signosHtml = signos.length
-    ? `<div class="signos-grid">
+    ? `<div class="hc-vitals">
          ${signos.map(s => `
-           <div class="signo-card">
-             <div class="signo-card__label">${s.label}</div>
-             <div class="signo-card__value">${escapeHtml(s.value)}<span class="signo-card__unit">${s.unit}</span></div>
+           <div class="hc-vital">
+             <div class="l">${s.label}</div>
+             <div class="v">${escapeHtml(s.value)} <small>${s.unit}</small></div>
            </div>`).join('')}
        </div>`
     : ''
 
-  const seccion = (titulo, contenido) =>
+  const seccion = (titulo, contenido, iconName) =>
     contenido && contenido !== '-' && contenido !== 'null' && String(contenido).trim()
-      ? `<section class="soap-section">
-           <h4>${titulo}</h4>
-           <div class="soap-section__content"><p>${escapeHtml(contenido).replace(/\n/g, '<br/>')}</p></div>
-         </section>`
+      ? `<div class="hc-sec">
+           <h5>${icon(iconName)} ${titulo}</h5>
+           <p>${escapeHtml(contenido).replace(/\n/g, '<br/>')}</p>
+         </div>`
       : ''
 
   return `
-    <div class="consulta-detalle">
-      <header class="consulta-detalle__head">
-        <span class="consulta-detalle__date">${a.fechaatencion ?? ''}</span>
-        <a href="/pdf/receta/${a.idatencion}" target="_blank" class="btn-secundario btn-sm">${icon('pdf')} Ver receta</a>
-      </header>
-      ${signosHtml}
-      ${seccion('Antecedente',   a.antecedente)}
-      ${seccion('Motivo de consulta', a.motivoconsulta)}
-      ${seccion('Anamnesis',     a.anamensis)}
-      ${seccion('Examen físico', a.exfisico)}
-      ${seccion('Diagnóstico',   a.diagnostico)}
-      ${seccion('Tratamiento',   a.tratamiento)}
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="font-size:14px; margin:0; color:var(--texto-primario);">Consulta del ${a.fechaatencion?.split(' ')[0] ?? ''}</h3>
+      <a href="/pdf/receta/${a.idatencion}" target="_blank" class="btn-secundario btn-sm" style="border-radius: 99px;">
+        ${icon('pdf')} Ver receta
+      </a>
+    </div>
+
+    ${signosHtml}
+
+    <div>
+      ${seccion('Antecedente',        a.antecedente,    'history')}
+      ${seccion('Motivo de consulta', a.motivoconsulta, 'report')}
+      ${seccion('Anamnesis',          a.anamensis,      'chart')}
+      ${seccion('Examen físico',      a.exfisico,       'patient')}
+      ${seccion('Diagnóstico',        a.diagnostico,    'heartbeat')}
+      ${seccion('Tratamiento',        a.tratamiento,    'pill')}
     </div>`
 }
 

@@ -4,9 +4,11 @@
  */
 
 export function renderTable({ columns, rows, emptyMsg = 'Sin resultados', rowClass = null }) {
-  const thead = `<thead><tr>${columns.map(c =>
-    `<th class="${c.align ? 'ta-' + c.align : ''}">${c.label}</th>`
-  ).join('')}</tr></thead>`
+  const thead = `<thead><tr>${columns.map(c => {
+    const cls = [c.align ? 'ta-' + c.align : '', c.sortable ? 'sortable' : ''].filter(Boolean).join(' ')
+    const attr = c.sortable ? ` data-sort="${c.key}"` : ''
+    return `<th class="${cls}"${attr}>${c.label}</th>`
+  }).join('')}</tr></thead>`
 
   if (!rows.length) {
     return `<table class="gm-table">${thead}

@@ -332,6 +332,14 @@ async function abrirAtencion(idatencion) {
 
   openModal(html, { size: 'xl' })
 
+  document.querySelectorAll('.aten-modal__nav a').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault()
+      const target = document.querySelector(a.getAttribute('href'))
+      if (target) target.scrollIntoView({ behavior: 'smooth' })
+    })
+  })
+
   document.querySelectorAll('.ant-chip input').forEach(inp => {
     inp.addEventListener('change', e => {
       e.target.closest('.ant-chip').classList.toggle('ant-chip--on', e.target.checked)

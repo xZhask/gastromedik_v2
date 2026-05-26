@@ -165,7 +165,7 @@ class PdfController
 
     private function renderTicket(int $idCita, array $cita, ?array $movimiento): string
     {
-        $logo  = $this->assetPath('img/logoticket2.png');
+        $logo  = $this->assetPath('img/logo-gm.svg');
         $monto = $this->caja->sumarIngresosPorCita($idCita);
         $precio = (float) ($cita['precio_consulta'] ?? 0);
         $saldo  = max(0, $precio - $monto);
@@ -181,14 +181,22 @@ class PdfController
         return '<body class="bodyticket">
             <div class="ticket">
 
-                <header class="ticket-head">
-                    <img class="ticket-logo" src="' . $this->e($logo) . '">
-                    <h1 class="ticket-brand">GASTRO-MEDIK</h1>
-                    <p class="ticket-addr">
-                        Francisco Cabrera N° 419 - 2do Piso<br>
-                        Chiclayo<br>
-                        Tel: (074) 618 329 / Cel: 973 995 974
-                    </p>
+                <header class="ticket-head" style="text-align: left; margin-bottom: 10px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="width: 40px; vertical-align: middle; padding: 0;">
+                                <img src="' . $this->e($logo) . '" style="width: 35px; height: auto;">
+                            </td>
+                            <td style="vertical-align: middle; padding-left: 8px;">
+                                <h1 style="margin: 0; font-size: 14px; font-weight: bold; color: #111;">GASTRO-MEDIK</h1>
+                                <p style="margin: 3px 0 0 0; font-size: 9px; color: #333; line-height: 1.2;">
+                                    Francisco Cabrera N° 419 - 2do Piso<br>
+                                    Chiclayo<br>
+                                    Tel: (074) 618 329 / Cel: 973 995 974
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
                 </header>
 
                 <div class="ticket-sep"></div>
@@ -421,14 +429,18 @@ class PdfController
         
         // Detectar tipo MIME
         $mimeType = 'image/png'; // default
-        if (function_exists('finfo_file')) {
-            $finfo = finfo_open(FILEINFO_MIME_TYPE);
-            if ($finfo) {
-                $mimeType = finfo_file($finfo, $filePath) ?: $mimeType;
-                finfo_close($finfo);
+        if (strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) === 'svg') {
+            $mimeType = 'image/svg+xml';
+        } else {
+            if (function_exists('finfo_file')) {
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                if ($finfo) {
+                    $mimeType = finfo_file($finfo, $filePath) ?: $mimeType;
+                    finfo_close($finfo);
+                }
+            } elseif (function_exists('mime_content_type')) {
+                $mimeType = mime_content_type($filePath) ?: $mimeType;
             }
-        } elseif (function_exists('mime_content_type')) {
-            $mimeType = mime_content_type($filePath) ?: $mimeType;
         }
         
         return 'data:' . $mimeType . ';base64,' . base64_encode($imageData);

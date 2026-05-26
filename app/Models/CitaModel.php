@@ -80,7 +80,8 @@ class CitaModel extends BaseModel
                     t.nombre  AS motivo,
                     t.precio,
                     p.telefono,
-                    c.estado
+                    c.estado,
+                    (SELECT COALESCE(SUM(m.monto), 0) FROM movimientocaja m WHERE m.codigoreferencia = c.idcita AND m.tipomovimientocaja = "INGRESO") AS abonado
                FROM cita c
                INNER JOIN paciente p      ON p.dni = c.dni
                INNER JOIN tipo_atencion t ON t.idtipoatencion = c.motivo_consulta

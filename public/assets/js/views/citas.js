@@ -54,19 +54,19 @@ export async function CitasView() {
       </div>
 
       <div class="citas-stats" id="citas-stats" hidden style="display:flex; gap:16px; margin-top:16px; margin-bottom:-8px;">
-        <div class="gm-stat" id="stat-card-pagadas" style="flex:1; padding: 12px; transition: opacity 0.2s;">
+        <div class="gm-stat gm-stat--verde" id="stat-card-pagadas" style="flex:1; transition: opacity 0.2s, padding 0.2s;">
           <span class="gm-stat__label">Pagadas</span>
-          <span class="gm-stat__value" id="stat-pagadas" style="color: var(--verde);">0</span>
+          <span class="gm-stat__value" id="stat-pagadas">0</span>
         </div>
-        <div class="gm-stat" id="stat-card-por-pagar" style="flex:1; padding: 12px; transition: opacity 0.2s;">
+        <div class="gm-stat gm-stat--rojo" id="stat-card-por-pagar" style="flex:1; transition: opacity 0.2s, padding 0.2s;">
           <span class="gm-stat__label">Por pagar</span>
-          <span class="gm-stat__value" id="stat-por-pagar" style="color: var(--rojo);">0</span>
+          <span class="gm-stat__value" id="stat-por-pagar">0</span>
         </div>
-        <div class="gm-stat" id="stat-card-cuenta" style="flex:1; padding: 12px; transition: opacity 0.2s;">
+        <div class="gm-stat gm-stat--ambar" id="stat-card-cuenta" style="flex:1; transition: opacity 0.2s, padding 0.2s;">
           <span class="gm-stat__label">A cuenta</span>
-          <span class="gm-stat__value" id="stat-cuenta" style="color: var(--ambar);">0</span>
+          <span class="gm-stat__value" id="stat-cuenta">0</span>
         </div>
-        <div class="gm-stat" id="stat-card-anuladas" style="flex:1; padding: 12px; transition: opacity 0.2s;">
+        <div class="gm-stat" id="stat-card-anuladas" style="flex:1; transition: opacity 0.2s, padding 0.2s;">
           <span class="gm-stat__label">Anuladas</span>
           <span class="gm-stat__value" id="stat-anuladas" style="color: var(--gris);">0</span>
         </div>
@@ -150,10 +150,10 @@ function actualizarContadores(data) {
   document.getElementById('stat-cuenta').textContent    = c.cuenta
   document.getElementById('stat-anuladas').textContent  = c.anuladas
 
-  document.getElementById('stat-card-pagadas').style.opacity = c.pagadas === 0 ? '0.4' : '1'
-  document.getElementById('stat-card-por-pagar').style.opacity = c.porPagar === 0 ? '0.4' : '1'
-  document.getElementById('stat-card-cuenta').style.opacity = c.cuenta === 0 ? '0.4' : '1'
-  document.getElementById('stat-card-anuladas').style.opacity = c.anuladas === 0 ? '0.4' : '1'
+  document.getElementById('stat-card-pagadas').classList.toggle('gm-stat--cero', c.pagadas === 0)
+  document.getElementById('stat-card-por-pagar').classList.toggle('gm-stat--cero', c.porPagar === 0)
+  document.getElementById('stat-card-cuenta').classList.toggle('gm-stat--cero', c.cuenta === 0)
+  document.getElementById('stat-card-anuladas').classList.toggle('gm-stat--cero', c.anuladas === 0)
 }
 
 function renderVacio(fecha) {
@@ -344,7 +344,7 @@ async function anularCita(idcita, tr) {
 
 export async function abrirFormCita(cita = null, fechaDefecto = null, onSaved = null) {
   if (PROCEDIMIENTOS.length === 0) {
-    const res = await api.get('/api/tipo-atencion')
+    const res = await api.get('/api/procedimientos')
     PROCEDIMIENTOS = res.data
   }
 
@@ -654,26 +654,33 @@ async function abrirPago(idcita) {
       Paciente: <strong>${cita.apellidospaciente}, ${cita.nombrepaciente}</strong><br/>
       Motivo: ${cita.motivo}
     </p>
+    <div style="display:flex; gap:12px; margin-bottom:20px; background:var(--superficie-2); padding:14px; border-radius:var(--radius); border:1px solid var(--borde-sutil);">
+      <div style="flex:1;">
+        <div style="font-size:11px; color:var(--texto-terciario); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; font-weight:600;">Total</div>
+        <div style="font-weight:600; font-size:17px; color:var(--texto-primario); font-variant-numeric:tabular-nums;">S/ ${precioTotal.toFixed(2)}</div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:11px; color:var(--texto-terciario); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; font-weight:600;">Pagado</div>
+        <div style="font-weight:600; font-size:17px; color:var(--ambar); font-variant-numeric:tabular-nums;">S/ ${montoCuenta.toFixed(2)}</div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:11px; color:var(--texto-terciario); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; font-weight:600;">Saldo pendiente</div>
+        <div style="font-weight:700; font-size:17px; color:var(--rojo); font-variant-numeric:tabular-nums;">S/ ${saldo.toFixed(2)}</div>
+      </div>
+    </div>
     <form id="form-pago" novalidate>
+      <input type="hidden" name="monto_total" value="${precioTotal}" />
       <div class="cont-group">
-        <div class="cont-control">
+        <div class="cont-control" style="flex:2;">
           <label>Tipo de Pago</label>
           <select name="idtipopago">${optsTP}</select>
         </div>
-        <div class="cont-control">
-          <label>Monto Total</label>
-          <input type="number" name="monto_total" value="${precioTotal}" step="0.01" readonly />
-        </div>
-        <div class="cont-control">
-          <label>Monto Pagado</label>
-          <input type="number" value="${montoCuenta.toFixed(2)}" readonly />
-        </div>
-        <div class="cont-control">
-          <label>Monto a Pagar (saldo)</label>
+        <div class="cont-control" style="flex:1;">
+          <label>Monto a Pagar</label>
           <input type="number" name="monto_pagado" value="${saldo.toFixed(2)}" step="0.01" min="0" required />
         </div>
       </div>
-      <div style="display:flex;gap:8px;margin-top:12px;">
+      <div style="display:flex;gap:8px;margin-top:16px;">
         <button type="submit" class="btn-primario">Registrar Pago</button>
         <button type="button" class="btn-secundario btn-cancelar" id="btn-cancel-pago">Cancelar</button>
       </div>

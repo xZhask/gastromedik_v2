@@ -14,6 +14,13 @@ const btnTogglePw = document.getElementById('btn-toggle-pass')
 const alertBox    = document.getElementById('login-alert')
 const alertMsg    = document.getElementById('login-alert-msg')
 
+// ── Session Expired Alert ─────────────────────────────────────────────────
+const urlParams = new URLSearchParams(window.location.search)
+if (urlParams.get('expired') === '1') {
+  mostrarError('Tu sesión ha expirado por inactividad. Por favor, inicia sesión nuevamente.')
+  window.history.replaceState({}, document.title, window.location.pathname)
+}
+
 // ── Toggle mostrar/ocultar contraseña ─────────────────────────────────────
 btnTogglePw?.addEventListener('click', () => {
   const isPass = inputPass.type === 'password'

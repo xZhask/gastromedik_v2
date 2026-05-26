@@ -72,7 +72,7 @@ class PersonalController extends BaseController
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => 30,
             CURLOPT_SSL_VERIFYPEER => 1,
-            CURLOPT_CAINFO         => BASE_PATH . '/resources/certs/cacert.pem',
+            CURLOPT_CAINFO         => STORAGE_PATH . '/certs/cacert.pem',
         ]);
 
         $response = curl_exec($curl);

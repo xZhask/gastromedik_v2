@@ -159,6 +159,8 @@ class CitaController extends BaseController
             'motivo'   => $f['motivo'],
             'telefono' => $f['telefono'],
             'estado'   => $f['estado'],
+            'precio'   => (float) $f['precio'],
+            'abonado'  => (float) $f['abonado'],
         ], $filas);
 
         $this->json($data);

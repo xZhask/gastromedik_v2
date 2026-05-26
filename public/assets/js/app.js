@@ -38,7 +38,7 @@ const ROUTES = {
 const contentEl = document.getElementById('app-content')
 let currentRoute = null
 
-export async function navigate(route) {
+export async function navigate(route, pushState = true) {
   if (!ROUTES[route]) {
     // Si no tiene ruta válida, intentar dashboard para admins, hoy para el resto
     if (CARGO === 1 || CARGO === 4) {
@@ -49,6 +49,11 @@ export async function navigate(route) {
   }
   if (route === currentRoute) return
   currentRoute = route
+  
+  if (pushState && window.location.hash !== `#${route}`) {
+    window.history.pushState(null, '', `#${route}`)
+  }
+  
   setActiveRoute(route)
   contentEl.innerHTML = `<div class="state-loading"><div class="spinner"></div><p>Cargando...</p></div>`
   try {
@@ -134,7 +139,17 @@ function init() {
     }
   })
 
-  navigate('hoy')
+  window.addEventListener('hashchange', () => {
+    const route = window.location.hash.slice(1)
+    navigate(route || 'hoy', false)
+  })
+
+  const initialRoute = window.location.hash.slice(1)
+  if (initialRoute) {
+    navigate(initialRoute, false)
+  } else {
+    navigate('hoy')
+  }
 
   // Keep-alive cada 20 min si hay actividad
   let activo = false

@@ -10,6 +10,10 @@ import { confirm }    from '../components/confirm.js'
 import { renderTable, wrapTable } from '../components/table.js'
 import { skeletonTable } from '../components/skeleton.js'
 
+let procData = []
+let sortCol = ''
+let sortDir = 1
+
 const content = () => document.getElementById('app-content')
 
 export async function ProcedimientosView() {
@@ -42,60 +46,103 @@ async function cargar() {
   try {
     const q = document.getElementById('q-proc')?.value ?? ''
     const { data } = await api.get('/api/procedimientos', q ? { q } : {})
-    document.getElementById('proc-sub').textContent = `${data.length} procedimientos definidos`
-    if (!data.length) {
-      wrap.innerHTML = `
-        <div class="gm-empty">
-          <div class="gm-empty__icon">${icon('procedure')}</div>
-          <p class="gm-empty__text">No se encontraron procedimientos.</p>
-        </div>`
-      return
-    }
-    wrap.innerHTML = wrapTable(renderTable({
-      columns: [
-        { key: 'idtipoatencion', label: 'Código',    align: 'center' },
-        { key: 'nombre',         label: 'Nombre' },
-        { key: 'precio',         label: 'Precio',    align: 'center', render: r => `S/. ${parseFloat(r.precio).toFixed(2)}` },
-        { label: 'Editar',       align: 'center',    render: () => iconBtn('edit',  'editar',   'Editar',   'icon-edit') },
-        { label: 'Eliminar',     align: 'center',    render: () => iconBtn('trash', 'eliminar', 'Eliminar', 'icon-danger') },
-      ],
-      rows: data.map(p => ({ ...p, _id: p.idtipoatencion })),
-    }))
+    procData = data
+    document.getElementById('proc-sub').textContent = `${procData.length} procedimientos definidos`
+    renderLocalData()
   } catch (err) {
     wrap.innerHTML = `<div class="state-error">${err.message}</div>`
   }
 }
 
+function renderLocalData() {
+  const wrap = document.getElementById('tabla-proc-wrap')
+  if (!procData.length) {
+    wrap.innerHTML = `
+      <div class="gm-empty">
+        <div class="gm-empty__icon">${icon('procedure')}</div>
+        <p class="gm-empty__text">No se encontraron procedimientos.</p>
+      </div>`
+    return
+  }
+
+  if (sortCol) {
+    procData.sort((a, b) => {
+      let valA = a[sortCol]
+      let valB = b[sortCol]
+      if (sortCol === 'precio') {
+        valA = parseFloat(valA ?? 0)
+        valB = parseFloat(valB ?? 0)
+      } else {
+        valA = String(valA ?? '').toLowerCase()
+        valB = String(valB ?? '').toLowerCase()
+      }
+      if (valA < valB) return -1 * sortDir
+      if (valA > valB) return 1 * sortDir
+      return 0
+    })
+  }
+
+  const getSortIcon = (key) => sortCol === key ? (sortDir === 1 ? ' &uarr;' : ' &darr;') : ''
+
+  wrap.innerHTML = wrapTable(renderTable({
+    columns: [
+      { key: 'idtipoatencion', label: 'Código',    align: 'center' },
+      { key: 'nombre',         label: 'Nombre' + getSortIcon('nombre'), sortable: true },
+      { key: 'precio',         label: 'Precio' + getSortIcon('precio'), align: 'right', sortable: true, render: r => `<span style="font-variant-numeric: tabular-nums;">S/ ${Number(r.precio).toLocaleString('es-PE',{minimumFractionDigits:2, maximumFractionDigits:2})}</span>` },
+      { label: 'Acciones',     align: 'right',    render: () => `<div style="display:flex; gap:8px; justify-content:flex-end;">${iconBtn('edit',  'editar',   'Editar',   '')}${iconBtn('trash', 'eliminar', 'Eliminar', 'icon-danger')}</div>` },
+    ],
+    rows: procData.map(p => ({ ...p, _id: p.idtipoatencion, nombre: `<span style="text-transform:capitalize">${String(p.nombre ?? '').toLowerCase()}</span>` })),
+  }))
+}
+
 function bindEventos() {
   const el = content()
+  let debounceTimeout
+  el.querySelector('#q-proc')?.addEventListener('input', e => {
+    clearTimeout(debounceTimeout)
+    debounceTimeout = setTimeout(cargar, 250)
+  })
   el.querySelector('#btn-buscar-proc')?.addEventListener('click', cargar)
   el.querySelector('#q-proc')?.addEventListener('keydown', e => { if (e.key === 'Enter') cargar() })
   el.querySelector('#btn-nuevo-proc')?.addEventListener('click', () => abrirForm(null))
 
   el.addEventListener('click', async (e) => {
+    const th = e.target.closest('th[data-sort]')
+    if (th) {
+      const key = th.dataset.sort
+      if (sortCol === key) {
+        sortDir *= -1
+      } else {
+        sortCol = key
+        sortDir = 1
+      }
+      return renderLocalData()
+    }
+
     if (!e.target.closest('#tabla-proc-wrap')) return
     const btn = e.target.closest('[data-action]')
     if (!btn) return
     const tr = btn.closest('tr')
     const id = parseInt(tr?.dataset.id)
     if (!id) return
-    if (btn.dataset.action === 'editar')   await editarProc(id, tr)
-    if (btn.dataset.action === 'eliminar') await eliminarProc(id, tr)
+    if (btn.dataset.action === 'editar')   await editarProc(id)
+    if (btn.dataset.action === 'eliminar') await eliminarProc(id)
   })
 }
 
-async function editarProc(id, tr) {
-  const nombre = tr.querySelectorAll('td')[1]?.textContent ?? ''
-  const precio = tr.querySelectorAll('td')[2]?.textContent?.replace('S/. ', '') ?? ''
-  abrirForm({ idtipoatencion: id, nombre, precio })
+async function editarProc(id) {
+  const proc = procData.find(p => p.idtipoatencion == id)
+  if (!proc) return
+  abrirForm(proc)
 }
 
-async function eliminarProc(id, tr) {
+async function eliminarProc(id) {
   const ok = await confirm({ title: 'Eliminar procedimiento', text: 'Esta acción no se puede revertir.', confirmLabel: 'Sí, eliminar', danger: true })
   if (!ok) return
   try {
     await api.delete(`/api/procedimientos/${id}`)
-    tr.remove()
+    procData = procData.filter(p => p.idtipoatencion != id)
+    renderLocalData()
     toastOk('Procedimiento eliminado.')
   } catch (err) { toastError(err.message) }
 }

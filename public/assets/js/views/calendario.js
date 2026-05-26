@@ -91,13 +91,15 @@ export async function CalendarioView() {
          if (c.estado === 'A CUENTA') bg = '#ffeaa7'; // Amarillo pastel
          if (c.estado === 'ANULADO') bg = '#dfe6e9'; // Gris pastel
          
+         const startStr = c.fecha + 'T' + c.horario;
+         
          return {
-           id: String(c.id),
+           id: String(c.idcita),
            calendarId: 'citas',
-           title: c.title,
+           title: c.paciente + ' (' + c.motivo + ')',
            category: 'time',
-           start: c.start,
-           end: c.end,
+           start: startStr,
+           end: startStr,
            backgroundColor: bg,
            borderColor: bg,
            color: '#2d3436' // Texto oscuro para contrastar con los colores pastel

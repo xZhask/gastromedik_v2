@@ -7,6 +7,11 @@ const parseResponse = async (res) => {
   try {
     const json = JSON.parse(text);
 
+    if (res.status === 401) {
+      window.location.assign('/login?expired=1');
+      throw new Error('Sesión expirada');
+    }
+
     if (!res.ok) {
       throw new Error(json.error ?? 'Error del servidor.');
     }
@@ -36,14 +41,16 @@ const parseResponse = async (res) => {
 export const api = {
   async get(url, params = {}) {
     const query = new URLSearchParams(params).toString();
-    const res = await fetch(`${url}?${query}`);
+    const res = await fetch(`${url}?${query}`, {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    });
     return parseResponse(res);
   },
 
   async post(url, body = {}) {
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
       body: JSON.stringify(body),
     });
     return parseResponse(res);
@@ -52,7 +59,7 @@ export const api = {
   async put(url, body = {}) {
     const res = await fetch(url, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken() },
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
       body: JSON.stringify(body),
     });
     return parseResponse(res);
@@ -61,7 +68,7 @@ export const api = {
   async delete(url) {
     const res = await fetch(url, {
       method: 'DELETE',
-      headers: { 'X-CSRF-Token': csrfToken() },
+      headers: { 'X-CSRF-Token': csrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
     });
     return parseResponse(res);
   },

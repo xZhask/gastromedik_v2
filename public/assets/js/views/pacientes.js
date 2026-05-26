@@ -397,47 +397,44 @@ async function abrirHistorial(dni) {
 
     const liAtenciones = atenciones.length
       ? atenciones.map(a => `
-          <li>
-            <button class="hist-item" data-type="${a.tipo}" data-id="${a.idatencion}">
-              <span class="hist-item__date">${a.fecha}</span>
-              <span class="hist-item__title">${escapeHtml(a.nombre)}</span>
-            </button>
-          </li>`).join('')
-      : '<li class="hist-empty">Sin atenciones registradas.</li>'
+          <button class="hc-item" data-type="${a.tipo}" data-id="${a.idatencion}">
+            <div class="d">${a.fecha}</div>
+            <div class="t">${escapeHtml(a.nombre)}</div>
+          </button>`).join('')
+      : '<div class="hc-empty">Sin atenciones registradas.</div>'
 
     const liExamenes = examenes.length
       ? examenes.map(ex => {
           const badgeClass = ex.tipo === 'PDF' ? 'badge-rojo' : 'badge-azul'
           return `
-          <li>
-            <button class="hist-item" data-type="${ex.tipo.toLowerCase()}" data-id="${ex.idexamen}">
-              <span class="hist-item__date">${ex.fecha}</span>
-              <span class="hist-item__title">${escapeHtml(ex.nombre)} <span class="badge ${badgeClass}" style="margin-left:6px;">${ex.tipo}</span></span>
-            </button>
-          </li>`
+          <button class="hc-item" data-type="${ex.tipo.toLowerCase()}" data-id="${ex.idexamen}">
+            <div class="d">${ex.fecha} <span class="hc-badge ${badgeClass}">${ex.tipo}</span></div>
+            <div class="t">${escapeHtml(ex.nombre)}</div>
+          </button>`
         }).join('')
-      : '<li class="hist-empty">Sin exámenes registrados.</li>'
+      : '<div class="hc-empty">Sin exámenes registrados.</div>'
 
     const html = `
-      <div class="hist-head">
-        <div class="gm-avatar gm-avatar--lg">${iniciales(paciente.nombre, paciente.apellidos)}</div>
-        <div>
-          <h2 class="hist-head__name">${escapeHtml(paciente.apellidos)}, ${escapeHtml(paciente.nombre)}</h2>
-          <p class="hist-head__meta">DNI ${escapeHtml(paciente.dni)} · ${paciente.edad ?? '—'} años · Nac. ${paciente.fecha_nac ?? '—'}</p>
+      <div class="hc">
+        <div class="hc-head">
+          <div class="hc-av">${iniciales(paciente.nombre, paciente.apellidos)}</div>
+          <div style="flex:1;">
+            <div class="hc-head-name">${escapeHtml(paciente.apellidos)}, ${escapeHtml(paciente.nombre)}</div>
+            <div class="hc-head-meta">DNI ${escapeHtml(paciente.dni)} · ${paciente.edad ?? '—'} años · ${paciente.sexo ? paciente.sexo + ' · ' : ''}Nac. ${paciente.fecha_nac ?? '—'}</div>
+          </div>
         </div>
-      </div>
-
-      <div class="historial-layout">
-        <aside class="historial-aside">
-          <h4>Consultas</h4>
-          <ul class="hist-list">${liAtenciones}</ul>
-          <h4 style="margin-top:18px">Exámenes</h4>
-          <ul class="hist-list">${liExamenes}</ul>
-        </aside>
-        <div class="historial-panel" id="historial-panel">
-          <div class="gm-empty">
-            <div class="gm-empty__icon">${icon('history')}</div>
-            <p class="gm-empty__text">Selecciona un registro de la lista para ver su detalle.</p>
+        <div class="hc-body">
+          <div class="hc-aside">
+            <h4>Consultas</h4>
+            ${liAtenciones}
+            <h4 style="margin-top:18px">Exámenes</h4>
+            ${liExamenes}
+          </div>
+          <div class="hc-panel" id="historial-panel">
+            <div class="gm-empty" style="margin-top:40px;">
+              <div class="gm-empty__icon">${icon('history')}</div>
+              <p class="gm-empty__text">Selecciona un registro de la lista para ver su detalle.</p>
+            </div>
           </div>
         </div>
       </div>`
@@ -468,6 +465,10 @@ async function abrirHistorial(dni) {
       // Cargar detalle
       const btn = e.target.closest('[data-type]')
       if (!btn) return
+      
+      document.querySelectorAll('.hc-item').forEach(el => el.classList.remove('on'))
+      btn.classList.add('on')
+      
       const panel = document.getElementById('historial-panel')
       panel.innerHTML = `<div class="state-loading"><div class="spinner"></div></div>`
 
@@ -505,53 +506,43 @@ function renderConsultaSOAP(a) {
     { label: 'T°',   value: a.temp, unit: '°C' },
     { label: 'SO₂',  value: a.so2,  unit: '%' },
     { label: 'Peso', value: a.peso, unit: 'kg' },
-  ].filter(s => s.value && s.value !== '-')
+  ].filter(s => s.value && s.value !== '-' && s.value !== 'null' && String(s.value).trim() !== '')
 
   const signosHtml = signos.length
-    ? `<div class="signos-grid">
+    ? `<div class="hc-vitals">
          ${signos.map(s => `
-           <div class="signo-card">
-             <div class="signo-card__label">${s.label}</div>
-             <div class="signo-card__value">${escapeHtml(s.value)}<span class="signo-card__unit">${s.unit}</span></div>
+           <div class="hc-vital">
+             <div class="l">${s.label}</div>
+             <div class="v">${escapeHtml(s.value)} <small>${s.unit}</small></div>
            </div>`).join('')}
        </div>`
     : ''
 
   const seccion = (titulo, contenido, iconName) =>
-    contenido && contenido !== '-' && contenido.trim()
-      ? `<section class="soap-section">
-           <h4>${icon(iconName)} ${titulo}</h4>
-           <div class="soap-section__content">
-             <p>${escapeHtml(contenido).replace(/\n/g, '<br/>')}</p>
-           </div>
-         </section>`
+    contenido && contenido !== '-' && contenido !== 'null' && String(contenido).trim()
+      ? `<div class="hc-sec">
+           <h5>${icon(iconName)} ${titulo}</h5>
+           <p>${escapeHtml(contenido).replace(/\n/g, '<br/>')}</p>
+         </div>`
       : ''
 
   return `
-    <div class="consulta-detalle">
-      <div class="consulta-detalle__head">
-        <div class="consulta-detalle__info">
-          <div class="consulta-detalle__icon">${icon('calendar')}</div>
-          <div class="consulta-detalle__texts">
-            <span class="consulta-detalle__title">Detalle de Atención</span>
-            <span class="consulta-detalle__date">${a.fechaatencion ?? ''}</span>
-          </div>
-        </div>
-        <a href="/pdf/receta/${a.idatencion}" target="_blank" class="btn-secundario btn-sm" style="border-radius: 99px;">
-          ${icon('pdf')} Ver receta
-        </a>
-      </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <h3 style="font-size:14px; margin:0; color:var(--texto-primario);">Consulta del ${a.fechaatencion?.split(' ')[0] ?? ''}</h3>
+      <a href="/pdf/receta/${a.idatencion}" target="_blank" class="btn-secundario btn-sm" style="border-radius: 99px;">
+        ${icon('pdf')} Ver receta
+      </a>
+    </div>
 
-      ${signosHtml}
+    ${signosHtml}
 
-      <div class="soap-container">
-        ${seccion('Antecedente',        a.antecedente,    'history')}
-        ${seccion('Motivo de consulta', a.motivoconsulta, 'report')}
-        ${seccion('Anamnesis',          a.anamensis,      'chart')}
-        ${seccion('Examen físico',      a.exfisico,       'patient')}
-        ${seccion('Diagnóstico',        a.diagnostico,    'heartbeat')}
-        ${seccion('Tratamiento',        a.tratamiento,    'pill')}
-      </div>
+    <div>
+      ${seccion('Antecedente',        a.antecedente,    'history')}
+      ${seccion('Motivo de consulta', a.motivoconsulta, 'report')}
+      ${seccion('Anamnesis',          a.anamensis,      'chart')}
+      ${seccion('Examen físico',      a.exfisico,       'patient')}
+      ${seccion('Diagnóstico',        a.diagnostico,    'heartbeat')}
+      ${seccion('Tratamiento',        a.tratamiento,    'pill')}
     </div>`
 }
 

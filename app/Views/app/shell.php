@@ -7,6 +7,12 @@
   <meta name="user-cargo" content="<?= (int) $cargo ?>" />
   <meta name="user-id"    content="<?= htmlspecialchars((string)$iduser) ?>" />
   <meta name="user-name"  content="<?= htmlspecialchars($nombre) ?>" />
+  
+  <!-- Evitar caché del HTML para forzar actualización del JS -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+
   <title>Gastromedik</title>
   <link rel="icon" type="image/png" href="/assets/img/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -39,17 +45,7 @@
         </svg>
       </button>
     </div>
-    <div class="cont-logo">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 429.54 446.29">
-        <path fill="#3867d6" d="M0,0V214.53H202.48S209,185,195,126c0,0-38.82-112-18.41-126Z"/>
-        <path fill="#f7b731" d="M0,229.82V335.71s15.5-42.21,56.5-42.21,141,51.65,147.49-63.68Z"/>
-        <path fill="#ccae62" d="M223.66,0H429.54V214.53h-53s7.18-82.21-49.91-94.12S215.81,159.5,223.66,0Z"/>
-        <path fill="#3867d6" d="M429.54,229.82V446.29H222.89V415.71s166.8-46.56,153.71-185.89Z"/>
-        <path fill="#f7b731" d="M204,446.29V420.41s-35.49,20.09-89.49-13.91-50-60-74-50,30.21,89.79,30.21,89.79Z"/>
-        <path fill="#f7b731" d="M0,400.31v46H15.42S-.49,429.13,0,400.31Z"/>
-      </svg>
-      <span>Gastro-Medik</span>
-    </div>
+    <div style="flex:1"></div>
     <div class="cont-sesion">
       <button id="btn-theme-toggle" class="icon-btn" aria-label="Cambiar tema" title="Modo oscuro/claro" style="margin-right: 4px;">
         <svg id="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -83,16 +79,12 @@
 
     <!-- SIDEBAR -->
     <aside id="app-sidebar">
-      <div class="sidebar-logo">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 429.54 446.29">
-          <path fill="#3867d6" d="M0,0V214.53H202.48S209,185,195,126c0,0-38.82-112-18.41-126Z"/>
-          <path fill="#f7b731" d="M0,229.82V335.71s15.5-42.21,56.5-42.21,141,51.65,147.49-63.68Z"/>
-          <path fill="#ccae62" d="M223.66,0H429.54V214.53h-53s7.18-82.21-49.91-94.12S215.81,159.5,223.66,0Z"/>
-          <path fill="#3867d6" d="M429.54,229.82V446.29H222.89V415.71s166.8-46.56,153.71-185.89Z"/>
-          <path fill="#f7b731" d="M204,446.29V420.41s-35.49,20.09-89.49-13.91-50-60-74-50,30.21,89.79,30.21,89.79Z"/>
-        </svg>
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <img src="/assets/img/logo-gm.svg" alt="Logo Gastro-Medik" style="width:100%; height:100%;">
+        </div>
+        <span class="sidebar-brand">Gastro-Medik</span>
       </div>
-      <span class="sidebar-brand">Gastro-Medik</span>
       <nav id="app-nav" aria-label="Menú principal">
         <!-- Generado por sidebar.js -->
       </nav>
