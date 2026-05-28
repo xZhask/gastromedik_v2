@@ -2351,3 +2351,89 @@ fieldset.mgt5 { margin-top: 5px; }
 [data-theme="dark"] .toastui-calendar-event-title {
     color: var(--negro) !important;
 }
+
+/* Nuevos estilos para el Modal de Atención (Registro) */
+.badge-curso {
+  background: var(--azul-light);
+  color: var(--azul);
+  border: 1px solid var(--azul-mid);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: .75rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 10px;
+}
+.badge-curso i { font-size: 1rem; }
+
+.signos-disp-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+@media (max-width: 768px) { .signos-disp-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.signo-disp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.signo-disp-card__label {
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--texto-primario);
+}
+.signo-disp-card__box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--superficie);
+  border: 1px solid var(--borde-sutil);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  height: 40px;
+}
+.signo-disp-card__box i { color: var(--texto-terciario); font-size: 1.2rem; }
+.signo-disp-card__val {
+  flex: 1;
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--texto-primario);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.signo-disp-card__unit {
+  font-size: .8rem;
+  color: var(--texto-secundario);
+}
+
+.ant-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 768px) { .ant-grid-3 { grid-template-columns: 1fr; } }
+
+.ant-chip {
+  padding: 4px 15px !important;
+}
+
+.ant-grid-3 textarea {
+  padding: 10px 12px !important;
+  box-sizing: border-box;
+}
+
+.signo-disp-card__short {
+  background: var(--azul);
+  color: #fff;
+  width: 46px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: .85rem;
+  flex-shrink: 0;
+}

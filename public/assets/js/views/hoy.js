@@ -250,26 +250,32 @@ async function abrirAtencion(idatencion) {
 
   const soapCard = (name, title, hint, value, rows = 4) => {
     const val = (value && value !== '-') ? value : ''
+    const len = val.length
     return `
       <div class="soap-edit-card" id="soap-${name}">
-        <div class="soap-edit-card__head">
-          <h4>${title}</h4>
-          <span class="soap-edit-card__hint">${hint}</span>
+        <div class="soap-edit-card__head" style="display:flex; justify-content:space-between; align-items:center; background:var(--azul-light); padding:8px 12px; margin-bottom:0; border-bottom:1px solid var(--borde-sutil);">
+          <h4 style="margin:0; font-size:.85rem; color:var(--texto-primario);">${title}</h4>
+          <span class="soap-edit-card__counter" style="font-size:.75rem; color:var(--texto-terciario);">${len}/1500</span>
         </div>
-        <textarea name="${name}" rows="${rows}" placeholder="${hint}">${val}</textarea>
+        <textarea name="${name}" rows="${rows}" placeholder="${hint}" maxlength="1500" oninput="this.parentElement.querySelector('.soap-edit-card__counter').textContent = this.value.length + '/1500'" style="border-top:none; border-top-left-radius:0; border-top-right-radius:0;">${val}</textarea>
       </div>`
   }
 
   const signosHtml = ['fr','pa','temp','so2','peso']
     .map(k => {
-      const labels = { fr:'FC', pa:'PA', temp:'T°', so2:'SO₂', peso:'Peso' }
+      const labels = { fr:'Frecuencia Cardiaca (FC)', pa:'Presión Arterial (PA)', temp:'Temperatura (T°)', so2:'Saturación de Oxígeno (SO2)', peso:'Peso' }
+      const shorts = { fr:'FC', pa:'PA', temp:'T°', so2:'SO₂', peso:'Kg' }
       const units  = { fr:'lpm', pa:'mmHg', temp:'°C', so2:'%', peso:'kg' }
       const v = atencion?.[k]
       const tieneValor = v && v !== '-'
       return `
-        <div class="signo-card">
-          <span class="signo-card__label">${labels[k]}</span>
-          <span class="signo-card__value">${tieneValor ? escapeHtmlLocal(v) : ''}<span class="signo-card__unit">${units[k]}</span></span>
+        <div class="signo-disp-card">
+          <div class="signo-disp-card__label">${labels[k]}</div>
+          <div class="signo-disp-card__box" style="padding:0; overflow:hidden;">
+            <div class="signo-disp-card__short">${shorts[k]}</div>
+            <span class="signo-disp-card__val" style="padding:0 8px;">${tieneValor ? escapeHtmlLocal(v) : ''}</span>
+            <span class="signo-disp-card__unit" style="padding-right:12px;">${units[k]}</span>
+          </div>
         </div>`
     }).join('')
 
@@ -280,9 +286,12 @@ async function abrirAtencion(idatencion) {
         <div class="aten-modal__ident">
           <h2 class="aten-modal__name">${escapeHtmlLocal(atencion?.paciente ?? '')}</h2>
           <p class="aten-modal__meta">
-            <span>DNI ${escapeHtmlLocal(atencion?.dni ?? '')}</span>
+            <span>DNI: ${escapeHtmlLocal(atencion?.dni ?? '')}</span>
             <span class="aten-modal__dot"></span>
-            <span>${atencion?.edad ?? ''} años</span>
+            <span>Edad: ${atencion?.edad ?? ''} años</span>
+            <span class="aten-modal__dot"></span>
+            <span>Cita: ${escapeHtmlLocal(atencion?.motivoconsulta ?? 'Control Post-Operatorio')}</span>
+            <span class="badge-curso"><i class="ph-fill ph-play-circle"></i> Atención en Curso</span>
           </p>
         </div>
         <button type="button" class="aten-modal__close" id="btn-close-aten" aria-label="Cerrar">
@@ -306,48 +315,57 @@ async function abrirAtencion(idatencion) {
             <input type="hidden" name="typeAction" value="REGISTRAR" />
 
             <section class="aten-section" id="soap-signos">
-              <h3 class="aten-section__title" style="grid-column: 1 / -1; white-space: normal;">Signos vitales registrados</h3>
-              <div class="signos-grid">${signosHtml}</div>
+              <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px;">
+                <h3 class="aten-section__title" style="margin:0; border:none; padding:0; font-size:.9rem; text-transform:uppercase;">Signos Vitales Registrados</h3>
+                <span style="font-size:.75rem; color:var(--texto-terciario);">Última actualización: ${new Date().toLocaleTimeString('es-PE', {hour: '2-digit', minute:'2-digit'})}</span>
+              </div>
+              <div class="signos-disp-grid">${signosHtml}</div>
             </section>
 
-              <section class="aten-section" id="soap-ant">
-                <h3 class="aten-section__title">Antecedentes</h3>
-
-                <div class="ant-grid">
-                  <div class="cont-control">
-                    <label>Enfermedades crónicas</label>
-                    <div class="ant-chips">
-                      ${chip('hta',   'HTA',       ant?.HTA)}
-                      ${chip('dm',    'DM',        ant?.DM)}
-                      ${chip('hiv',   'HIV',       ant?.HIV)}
-                      ${chip('hep',   'Hepatitis', ant?.HEPATITIS)}
-                      ${chip('covid', 'COVID',     ant?.COVID)}
-                    </div>
-                  </div>
-                  <div class="cont-control">
-                    <label>Alergias</label>
-                    <input type="text" name="alergias" value="${ant?.ALERGIAS && ant.ALERGIAS !== '-' ? ant.ALERGIAS : ''}" placeholder="Alergias conocidas" />
-                  </div>
-                  <div class="cont-control">
-                    <label>Cirugías</label>
-                    <input type="text" name="cirugias" value="${ant?.CIRUGIAS && ant.CIRUGIAS !== '-' ? ant.CIRUGIAS : ''}" placeholder="Antecedentes quirúrgicos" />
-                  </div>
-                  <div class="cont-control">
-                    <label>Endoscopías previas</label>
-                    <input type="text" name="endoscopias" value="${ant?.ENDOSCOPIAS && ant.ENDOSCOPIAS !== '-' ? ant.ENDOSCOPIAS : ''}" placeholder="Endoscopías previas" />
-                  </div>
+            <section class="aten-section" id="soap-ant" style="margin-top:24px;">
+              <h3 class="aten-section__title" style="margin-bottom:12px; border:none; padding:0; font-size:.9rem; text-transform:uppercase;">Antecedentes</h3>
+              
+              <div style="margin-bottom:16px;">
+                <label style="display:block; font-size:.8rem; color:var(--texto-primario); margin-bottom:8px;">Enfermedades crónicas</label>
+                <div class="ant-chips" style="margin-bottom:0;">
+                  ${chip('hta',   'HTA',       ant?.HTA)}
+                  ${chip('dm',    'DM',        ant?.DM)}
+                  ${chip('hiv',   'HIV',       ant?.HIV)}
+                  ${chip('hep',   'Hepatitis', ant?.HEPATITIS)}
+                  ${chip('covid', 'COVID',     ant?.COVID)}
                 </div>
-              </section>
+              </div>
 
-              <section class="aten-section">
-                <h3 class="aten-section__title">Consulta</h3>
-                ${soapCard('molestia',     'Molestia principal',  'Síntoma o queja que motivó la consulta', atencion?.motivoconsulta, 3)}
-                ${soapCard('antecedentes', 'Antecedentes (HEA)',  'Historia de la enfermedad actual',       atencion?.antecedente,    3)}
-                ${soapCard('anamnesis',    'Anamnesis',           'Detalle del relato del paciente',         atencion?.anamensis,      4)}
-                ${soapCard('examen_fisico','Examen físico',       'Hallazgos a la exploración',              atencion?.exfisico,       4)}
-                ${soapCard('diagnostico',  'Diagnóstico',         'Impresión diagnóstica',                   atencion?.diagnostico,    4)}
-                ${soapCard('tratamiento',  'Tratamiento',         'Plan terapéutico y recomendaciones',      atencion?.tratamiento,    4)}
-              </section>
+              <div class="ant-grid-3">
+                <div class="cont-control" style="margin:0;">
+                  <label>Alergias Conocidas</label>
+                  <textarea name="alergias" rows="2" placeholder="Ej. Penicilina (Reacción urticaria)">${ant?.ALERGIAS && ant.ALERGIAS !== '-' ? ant.ALERGIAS : ''}</textarea>
+                </div>
+                <div class="cont-control" style="margin:0;">
+                  <label>Cirugías Previas</label>
+                  <textarea name="cirugias" rows="2" placeholder="Ej. Apendicectomía (2015)">${ant?.CIRUGIAS && ant.CIRUGIAS !== '-' ? ant.CIRUGIAS : ''}</textarea>
+                </div>
+                <div class="cont-control" style="margin:0;">
+                  <label>Endoscopias Previas</label>
+                  <textarea name="endoscopias" rows="2" placeholder="Ej. Colonoscopia (2021)">${ant?.ENDOSCOPIAS && ant.ENDOSCOPIAS !== '-' ? ant.ENDOSCOPIAS : ''}</textarea>
+                </div>
+              </div>
+            </section>
+
+            <section class="aten-section" style="margin-top:24px;">
+              <h3 class="aten-section__title" style="margin-bottom:12px; border:none; padding:0; font-size:.9rem; text-transform:uppercase;">Consulta</h3>
+              <h4 style="font-size:.95rem; font-weight:700; color:var(--texto-primario); margin:0 0 14px;">Datos de la Consulta</h4>
+              
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                ${soapCard('molestia',     'Molestia principal de consulta',  'Describe el síntoma o queja principal con detalles de intensidad...', atencion?.motivoconsulta, 3)}
+                ${soapCard('anamnesis',    'Anamnesis (Detalle del relato)',  'Registre el relato detallado y otros hallazgos relevantes...',        atencion?.anamensis,      3)}
+              </div>
+              
+              ${soapCard('antecedentes', 'HEA (Historia de la Enfermedad Actual)', 'Detalla la evolución de los síntomas cronológicamente...',       atencion?.antecedente,    3)}
+              ${soapCard('examen_fisico','Examen físico',       'Hallazgos a la exploración',              atencion?.exfisico,       3)}
+              ${soapCard('diagnostico',  'Diagnóstico',         'Impresión diagnóstica',                   atencion?.diagnostico,    3)}
+              ${soapCard('tratamiento',  'Tratamiento',         'Plan terapéutico y recomendaciones',      atencion?.tratamiento,    3)}
+            </section>
           </form>
         </div>
 
@@ -444,26 +462,51 @@ async function abrirAtencion(idatencion) {
       })
 
       wrap.innerHTML = data.map(ex => {
-        const d = ex.fecha ? new Date(ex.fecha) : null
-        const df = d && !isNaN(d) ? d.toLocaleDateString('es-PE', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—'
-        const isPdf = ex.tipoexamen === 'PDF'
+        const isPdf = ex.tipo === 'PDF'
         const badgeEx = isPdf ? '<span class="badge badge-rojo">PDF</span>' : '<span class="badge badge-verde">IMG</span>'
-        const type = isPdf ? 'pdf' : 'imgs'
-        const url = `/uploads/${type}/${atencion.dni}/${encodeURIComponent(isPdf ? ex.archivo_pdf : ex.foto1)}`
         
         return `
           <div class="gm-card gm-card--flat" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
             <div>
-              <div style="font-weight:600;font-size:13px;text-transform:capitalize;">${escapeHtmlLocal(ex.nombreexamen)}</div>
-              <div style="font-size:11px;color:var(--texto-terciario);font-variant-numeric:tabular-nums;">${df}</div>
+              <div style="font-weight:600;font-size:13px;text-transform:capitalize;">${escapeHtmlLocal(ex.nombre)}</div>
+              <div style="font-size:11px;color:var(--texto-terciario);font-variant-numeric:tabular-nums;">${ex.fecha}</div>
             </div>
             <div style="display:flex;align-items:center;gap:10px;">
               ${badgeEx}
-              <a href="${url}" target="_blank" class="btn-secundario" style="height:28px;padding:0 10px;font-size:12px;text-decoration:none;">Abrir</a>
+              <button type="button" class="btn-secundario btn-abrir-adj" data-id="${ex.idexamen}" data-tipo="${ex.tipo}" style="height:28px;padding:0 10px;font-size:12px;">Abrir</button>
             </div>
           </div>
         `
       }).join('')
+
+      wrap.querySelectorAll('.btn-abrir-adj').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault()
+          const b = e.currentTarget
+          const id = b.dataset.id
+          const tipo = b.dataset.tipo
+          b.disabled = true
+          b.textContent = '...'
+          try {
+             if (tipo === 'PDF') {
+                const res = await api.get(`/api/examenes/${id}`)
+                if (res.data && res.data.length > 0 && res.data[0].archivo) {
+                  window.open('/' + res.data[0].archivo, '_blank')
+                } else { toastError('Archivo no encontrado') }
+             } else {
+                const res = await api.get(`/api/examenes/${id}/imagenes`)
+                if (res.data && res.data.length > 0 && res.data[0].archivo) {
+                  openImageViewer('/' + res.data[0].archivo)
+                } else { toastError('Imágenes no encontradas') }
+             }
+          } catch (err) {
+             toastError('Error al cargar archivo')
+          } finally {
+             b.disabled = false
+             b.textContent = 'Abrir'
+          }
+        })
+      })
     }).catch(() => {
       document.getElementById('lista-adjuntos').innerHTML = `<div class="state-error">Error al cargar adjuntos</div>`
     })
@@ -535,5 +578,40 @@ function abrirTicket(idcita) {
   const y = Math.round(screen.height / 2 - h / 2)
   window.open(`/pdf/ticket/${idcita}`, '_ticket',
     `left=${x},top=${y},width=${w},height=${h},scrollbars=yes,menubar=no`)
+}
+
+function openImageViewer(url) {
+  const prev = document.getElementById('gm-image-viewer')
+  if (prev) prev.remove()
+
+  const viewer = document.createElement('div')
+  viewer.id = 'gm-image-viewer'
+  viewer.style.cssText = 'position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.85); z-index:9999; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(4px);'
+
+  const img = document.createElement('img')
+  img.src = url
+  img.style.cssText = 'max-width:90%; max-height:90%; object-fit:contain; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.5);'
+
+  const closeBtn = document.createElement('button')
+  closeBtn.innerHTML = '<i class="ph ph-x"></i>'
+  closeBtn.style.cssText = 'position:absolute; top:20px; right:24px; background:rgba(255,255,255,0.1); border:none; color:#fff; width:40px; height:40px; border-radius:50%; font-size:1.5rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:0.2s;'
+  closeBtn.onmouseover = () => closeBtn.style.background = 'rgba(255,255,255,0.2)'
+  closeBtn.onmouseout  = () => closeBtn.style.background = 'rgba(255,255,255,0.1)'
+
+  viewer.appendChild(img)
+  viewer.appendChild(closeBtn)
+  document.body.appendChild(viewer)
+
+  const closeViewer = () => viewer.remove()
+  closeBtn.addEventListener('click', closeViewer)
+  viewer.addEventListener('click', e => { if (e.target === viewer) closeViewer() })
+  
+  const onKey = (e) => {
+    if (e.key === 'Escape') {
+      closeViewer()
+      document.removeEventListener('keydown', onKey)
+    }
+  }
+  document.addEventListener('keydown', onKey)
 }
 
