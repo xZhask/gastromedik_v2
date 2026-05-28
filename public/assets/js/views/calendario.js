@@ -102,7 +102,7 @@ export async function CalendarioView() {
            end: startStr,
            backgroundColor: bg,
            borderColor: bg,
-           color: '#2d3436' // Texto oscuro para contrastar con los colores pastel
+           color: isDarkMode ? '#f0f2f7' : '#2d3436' // Texto dinámico según el tema
          }
       })
       calendar.createEvents(events)

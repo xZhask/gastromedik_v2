@@ -8,6 +8,7 @@ import { icon, iconBtn } from '../utils/icons.js'
 import { openModal, closeModal } from '../components/modal.js'
 import { renderTable, wrapTable } from '../components/table.js'
 import { skeletonTable } from '../components/skeleton.js'
+import { abrirAdjuntos } from '../components/adjuntosModal.js'
 
 const content = () => document.getElementById('app-content')
 const CARGO   = parseInt(document.querySelector('meta[name="user-cargo"]')?.content ?? '0')
@@ -56,7 +57,17 @@ export async function HoyView() {
 
     if (btn.dataset.action === 'signos')   await abrirSignos(idatencion)
     if (btn.dataset.action === 'atender')  await abrirAtencion(idatencion)
-    if (btn.dataset.action === 'archivo')  await abrirSubirPdf(idatencion)
+    if (btn.dataset.action === 'archivo') {
+      try {
+        const r = await api.get(`/api/atenciones/${idatencion}`);
+        const dni = r.data?.dni ?? '';
+        const pac = r.data?.paciente ?? '';
+        if (!dni) { toastError('No se encontró el DNI del paciente.'); return; }
+        await abrirAdjuntos(dni, pac, { onDone: cargarHoy });
+      } catch {
+        toastError('No se pudo obtener los datos del paciente.');
+      }
+    }
     if (btn.dataset.action === 'ticket') {
       const idcita = parseInt(tr?.dataset.idcita)
       if (idcita) abrirTicket(idcita)
@@ -137,12 +148,14 @@ async function cargarHoy() {
             const ticketBtn = (r.estado === 'A CUENTA' || r.estado === 'PAGADO')
               ? iconBtn('print', 'ticket', 'Imprimir ticket', 'icon-info')
               : '';
-            const mainAction = ([1,2].includes(CARGO))
-              ? (r.es_consulta || r.atencion_estado === 'EN PROGR'
-                  ? iconBtn('calendar', 'atender', 'Registrar atención', 'icon-azul')
-                  : iconBtn('pdf', 'archivo', 'Subir archivo', 'icon-ocre'))
-              : '';
-            return `<div class="pac-actions" style="justify-content:center;">${ticketBtn}${mainAction}</div>`;
+            const mainAction = [];
+            if ([1,2,4].includes(CARGO)) {
+              mainAction.push(iconBtn('pdf', 'archivo', 'Adjuntar archivo', 'icon-ocre'));
+            }
+            if ([1,2].includes(CARGO)) {
+              mainAction.push(iconBtn('calendar', 'atender', 'Registrar atención', 'icon-azul'));
+            }
+            return `<div class="pac-actions acciones-atencion" style="justify-content:center;display:flex;gap:6px;">${ticketBtn}${mainAction.join('')}</div>`;
           }
         }
       ],
@@ -235,24 +248,28 @@ async function abrirAtencion(idatencion) {
       <span>${label}</span>
     </label>`
 
-  const soapCard = (name, title, hint, value, rows = 4) => `
-    <div class="soap-edit-card" id="soap-${name}">
-      <div class="soap-edit-card__head">
-        <h4>${title}</h4>
-        <span class="soap-edit-card__hint">${hint}</span>
-      </div>
-      <textarea name="${name}" rows="${rows}" placeholder="${hint}">${value ?? ''}</textarea>
-    </div>`
+  const soapCard = (name, title, hint, value, rows = 4) => {
+    const val = (value && value !== '-') ? value : ''
+    return `
+      <div class="soap-edit-card" id="soap-${name}">
+        <div class="soap-edit-card__head">
+          <h4>${title}</h4>
+          <span class="soap-edit-card__hint">${hint}</span>
+        </div>
+        <textarea name="${name}" rows="${rows}" placeholder="${hint}">${val}</textarea>
+      </div>`
+  }
 
   const signosHtml = ['fr','pa','temp','so2','peso']
     .map(k => {
       const labels = { fr:'FC', pa:'PA', temp:'T°', so2:'SO₂', peso:'Peso' }
       const units  = { fr:'lpm', pa:'mmHg', temp:'°C', so2:'%', peso:'kg' }
       const v = atencion?.[k]
+      const tieneValor = v && v !== '-'
       return `
         <div class="signo-card">
-          <div class="signo-card__label">${labels[k]}</div>
-          <div class="signo-card__value">${v && v !== '-' ? escapeHtmlLocal(v) : '—'}<span class="signo-card__unit">${units[k]}</span></div>
+          <span class="signo-card__label">${labels[k]}</span>
+          <span class="signo-card__value">${tieneValor ? escapeHtmlLocal(v) : ''}<span class="signo-card__unit">${units[k]}</span></span>
         </div>`
     }).join('')
 
@@ -260,68 +277,94 @@ async function abrirAtencion(idatencion) {
     <div class="aten-modal">
       <header class="aten-modal__head">
         <div class="gm-avatar gm-avatar--lg">${inicialesAten(atencion?.paciente)}</div>
-        <div>
-          <h2 class="hist-head__name">${escapeHtmlLocal(atencion?.paciente ?? '—')}</h2>
-          <p class="hist-head__meta">DNI ${escapeHtmlLocal(atencion?.dni ?? '—')} · ${atencion?.edad ?? '—'} años</p>
+        <div class="aten-modal__ident">
+          <h2 class="aten-modal__name">${escapeHtmlLocal(atencion?.paciente ?? '')}</h2>
+          <p class="aten-modal__meta">
+            <span>DNI ${escapeHtmlLocal(atencion?.dni ?? '')}</span>
+            <span class="aten-modal__dot"></span>
+            <span>${atencion?.edad ?? ''} años</span>
+          </p>
         </div>
+        <button type="button" class="aten-modal__close" id="btn-close-aten" aria-label="Cerrar">
+          <i class="ph ph-x"></i>
+        </button>
       </header>
 
-      <div class="aten-modal__body">
+      <div class="modal-tabs" style="padding: 0 24px;">
+        <button type="button" class="modal-tab active" data-tab="tab-aten">Atención</button>
+        <button type="button" class="modal-tab" data-tab="tab-adj">Adjuntos <span class="badge badge-azul badge--solid" id="badge-adj" style="margin-left:6px">0</span></button>
+        <button type="button" class="modal-tab" data-tab="tab-hist">Historial</button>
+      </div>
 
-        <aside class="aten-modal__nav">
-          <a href="#soap-signos">Signos vitales</a>
-          <a href="#soap-ant">Antecedentes</a>
-          <a href="#soap-molestia">Consulta</a>
-        </aside>
+      <div class="aten-modal__body" style="padding: 0 24px 16px;">
 
-        <form id="form-atencion" class="aten-modal__form" novalidate>
-          <input type="hidden" name="idatencion" value="${idatencion}" />
-          <input type="hidden" name="dni"        value="${atencion?.dni ?? ''}" />
-          <input type="hidden" name="typeAction" value="REGISTRAR" />
+        <!-- Pestaña Atención -->
+        <div id="tab-aten" class="tab-panel active">
+          <form id="form-atencion" class="aten-modal__form" novalidate style="width: 100%;">
+            <input type="hidden" name="idatencion" value="${idatencion}" />
+            <input type="hidden" name="dni"        value="${atencion?.dni ?? ''}" />
+            <input type="hidden" name="typeAction" value="REGISTRAR" />
 
-          <section class="aten-section" id="soap-signos">
-            <h3 class="aten-section__title">Signos vitales registrados</h3>
-            <div class="signos-grid">${signosHtml}</div>
-          </section>
+            <section class="aten-section" id="soap-signos">
+              <h3 class="aten-section__title" style="grid-column: 1 / -1; white-space: normal;">Signos vitales registrados</h3>
+              <div class="signos-grid">${signosHtml}</div>
+            </section>
 
-          <section class="aten-section" id="soap-ant">
-            <h3 class="aten-section__title">Antecedentes</h3>
+              <section class="aten-section" id="soap-ant">
+                <h3 class="aten-section__title">Antecedentes</h3>
 
-            <div class="ant-chips">
-              ${chip('hta',   'HTA',       ant?.HTA)}
-              ${chip('dm',    'DM',        ant?.DM)}
-              ${chip('hiv',   'HIV',       ant?.HIV)}
-              ${chip('hep',   'Hepatitis', ant?.HEPATITIS)}
-              ${chip('covid', 'COVID',     ant?.COVID)}
-            </div>
+                <div class="ant-grid">
+                  <div class="cont-control">
+                    <label>Enfermedades crónicas</label>
+                    <div class="ant-chips">
+                      ${chip('hta',   'HTA',       ant?.HTA)}
+                      ${chip('dm',    'DM',        ant?.DM)}
+                      ${chip('hiv',   'HIV',       ant?.HIV)}
+                      ${chip('hep',   'Hepatitis', ant?.HEPATITIS)}
+                      ${chip('covid', 'COVID',     ant?.COVID)}
+                    </div>
+                  </div>
+                  <div class="cont-control">
+                    <label>Alergias</label>
+                    <input type="text" name="alergias" value="${ant?.ALERGIAS && ant.ALERGIAS !== '-' ? ant.ALERGIAS : ''}" placeholder="Alergias conocidas" />
+                  </div>
+                  <div class="cont-control">
+                    <label>Cirugías</label>
+                    <input type="text" name="cirugias" value="${ant?.CIRUGIAS && ant.CIRUGIAS !== '-' ? ant.CIRUGIAS : ''}" placeholder="Antecedentes quirúrgicos" />
+                  </div>
+                  <div class="cont-control">
+                    <label>Endoscopías previas</label>
+                    <input type="text" name="endoscopias" value="${ant?.ENDOSCOPIAS && ant.ENDOSCOPIAS !== '-' ? ant.ENDOSCOPIAS : ''}" placeholder="Endoscopías previas" />
+                  </div>
+                </div>
+              </section>
 
-            <div class="cont-group">
-              <div class="cont-control">
-                <label>Alergias</label>
-                <input type="text" name="alergias" value="${ant?.ALERGIAS ?? '-'}" />
-              </div>
-              <div class="cont-control">
-                <label>Cirugías</label>
-                <input type="text" name="cirugias" value="${ant?.CIRUGIAS ?? '-'}" />
-              </div>
-              <div class="cont-control" style="grid-column: 1 / -1;">
-                <label>Endoscopías previas</label>
-                <input type="text" name="endoscopias" value="${ant?.ENDOSCOPIAS ?? '-'}" />
-              </div>
-            </div>
-          </section>
+              <section class="aten-section">
+                <h3 class="aten-section__title">Consulta</h3>
+                ${soapCard('molestia',     'Molestia principal',  'Síntoma o queja que motivó la consulta', atencion?.motivoconsulta, 3)}
+                ${soapCard('antecedentes', 'Antecedentes (HEA)',  'Historia de la enfermedad actual',       atencion?.antecedente,    3)}
+                ${soapCard('anamnesis',    'Anamnesis',           'Detalle del relato del paciente',         atencion?.anamensis,      4)}
+                ${soapCard('examen_fisico','Examen físico',       'Hallazgos a la exploración',              atencion?.exfisico,       4)}
+                ${soapCard('diagnostico',  'Diagnóstico',         'Impresión diagnóstica',                   atencion?.diagnostico,    4)}
+                ${soapCard('tratamiento',  'Tratamiento',         'Plan terapéutico y recomendaciones',      atencion?.tratamiento,    4)}
+              </section>
+          </form>
+        </div>
 
-          <section class="aten-section">
-            <h3 class="aten-section__title">Consulta</h3>
-            ${soapCard('molestia',     'Molestia principal',  'Síntoma o queja que motivó la consulta', atencion?.motivoconsulta, 3)}
-            ${soapCard('antecedentes', 'Antecedentes (HEA)',  'Historia de la enfermedad actual',       atencion?.antecedente,    3)}
-            ${soapCard('anamnesis',    'Anamnesis',           'Detalle del relato del paciente',         atencion?.anamensis,      5)}
-            ${soapCard('examen_fisico','Examen físico',       'Hallazgos a la exploración',              atencion?.exfisico,       5)}
-            ${soapCard('diagnostico',  'Diagnóstico',         'Impresión diagnóstica',                   atencion?.diagnostico,    4)}
-            ${soapCard('tratamiento',  'Tratamiento',         'Plan terapéutico y recomendaciones',      atencion?.tratamiento,    5)}
-          </section>
+        <!-- Pestaña Adjuntos -->
+        <div id="tab-adj" class="tab-panel">
+          <div id="lista-adjuntos" style="display:flex;flex-direction:column;gap:8px;">
+            <div class="state-loading"><div class="spinner"></div></div>
+          </div>
+        </div>
 
-        </form>
+        <!-- Pestaña Historial -->
+        <div id="tab-hist" class="tab-panel">
+          <div id="lista-historial" style="display:flex;flex-direction:column;gap:10px;">
+            <div class="state-loading"><div class="spinner"></div></div>
+          </div>
+        </div>
+
       </div>
 
       <footer class="aten-modal__foot">
@@ -332,13 +375,19 @@ async function abrirAtencion(idatencion) {
 
   openModal(html, { size: 'xl' })
 
-  document.querySelectorAll('.aten-modal__nav a').forEach(a => {
-    a.addEventListener('click', e => {
-      e.preventDefault()
-      const target = document.querySelector(a.getAttribute('href'))
-      if (target) target.scrollIntoView({ behavior: 'smooth' })
+  // Pestañas
+  const tabs = document.querySelectorAll('.modal-tab')
+  const contents = document.querySelectorAll('.tab-panel')
+  tabs.forEach(t => {
+    t.addEventListener('click', () => {
+      tabs.forEach(x => x.classList.remove('active'))
+      contents.forEach(x => x.classList.remove('active'))
+      t.classList.add('active')
+      document.getElementById(t.dataset.tab).classList.add('active')
     })
   })
+
+
 
   document.querySelectorAll('.ant-chip input').forEach(inp => {
     inp.addEventListener('change', e => {
@@ -346,8 +395,8 @@ async function abrirAtencion(idatencion) {
     })
   })
 
+  document.getElementById('btn-close-aten')?.addEventListener('click', closeModal)
   document.getElementById('btn-cancel-aten').addEventListener('click', closeModal)
-
   document.getElementById('form-atencion').addEventListener('submit', async (e) => {
     e.preventDefault()
     const btn  = document.getElementById('btn-guardar-aten')
@@ -372,6 +421,99 @@ async function abrirAtencion(idatencion) {
       btn.classList.remove('btn-loading')
     }
   })
+
+  // Cargar Adjuntos
+  if (atencion?.dni) {
+    api.get('/api/examenes', { dni: atencion.dni }).then(res => {
+      const data = res.data || []
+      const badge = document.getElementById('badge-adj')
+      const wrap = document.getElementById('lista-adjuntos')
+      
+      badge.textContent = data.length
+      if (data.length === 0) {
+        wrap.innerHTML = `<div class="state-empty" style="padding:40px;">Sin archivos adjuntos.</div>`
+        return
+      }
+
+      data.sort((a, b) => {
+        const da = new Date(a.fecha).getTime()
+        const db = new Date(b.fecha).getTime()
+        const va = isNaN(da) ? 0 : da
+        const vb = isNaN(db) ? 0 : db
+        return vb - va
+      })
+
+      wrap.innerHTML = data.map(ex => {
+        const d = ex.fecha ? new Date(ex.fecha) : null
+        const df = d && !isNaN(d) ? d.toLocaleDateString('es-PE', { day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—'
+        const isPdf = ex.tipoexamen === 'PDF'
+        const badgeEx = isPdf ? '<span class="badge badge-rojo">PDF</span>' : '<span class="badge badge-verde">IMG</span>'
+        const type = isPdf ? 'pdf' : 'imgs'
+        const url = `/uploads/${type}/${atencion.dni}/${encodeURIComponent(isPdf ? ex.archivo_pdf : ex.foto1)}`
+        
+        return `
+          <div class="gm-card gm-card--flat" style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
+            <div>
+              <div style="font-weight:600;font-size:13px;text-transform:capitalize;">${escapeHtmlLocal(ex.nombreexamen)}</div>
+              <div style="font-size:11px;color:var(--texto-terciario);font-variant-numeric:tabular-nums;">${df}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              ${badgeEx}
+              <a href="${url}" target="_blank" class="btn-secundario" style="height:28px;padding:0 10px;font-size:12px;text-decoration:none;">Abrir</a>
+            </div>
+          </div>
+        `
+      }).join('')
+    }).catch(() => {
+      document.getElementById('lista-adjuntos').innerHTML = `<div class="state-error">Error al cargar adjuntos</div>`
+    })
+  }
+
+  // Cargar Historial
+  if (atencion?.dni) {
+    api.get('/api/atenciones/paciente', { dni: atencion.dni }).then(res => {
+      const data = res.data || []
+      const wrap = document.getElementById('lista-historial')
+      
+      const filtrado = data.filter(a => a.estado === 'FINALIZADO' && a.idatencion !== idatencion)
+      
+      if (filtrado.length === 0) {
+        wrap.innerHTML = `<div class="state-empty" style="padding:40px;">No hay atenciones finalizadas previas.</div>`
+        return
+      }
+
+      filtrado.sort((a, b) => {
+        const d_a = a.fecha || a.fechaatencion
+        const d_b = b.fecha || b.fechaatencion
+        const da = new Date(d_a).getTime()
+        const db = new Date(d_b).getTime()
+        return (isNaN(db) ? 0 : db) - (isNaN(da) ? 0 : da)
+      })
+
+      const mostrados = filtrado.slice(0, 5)
+
+      wrap.innerHTML = mostrados.map((h, i) => {
+        const d_str = h.fecha || h.fechaatencion
+        const d = d_str ? new Date(d_str) : null
+        const df = d && !isNaN(d) ? d.toLocaleDateString('es-PE', { day:'numeric', month:'short', year:'numeric' }) : '—'
+        return `
+          <div class="hist-item ${i === 0 ? 'open' : ''}">
+            <div class="hist-head" onclick="this.parentElement.classList.toggle('open')">
+              <span>${df}</span>
+              <span style="font-size:12px;font-weight:500;color:var(--azul);">Ver detalles ▾</span>
+            </div>
+            <div class="hist-body">
+              <div style="margin-bottom:8px;"><strong style="font-size:12px;color:var(--texto-terciario);text-transform:uppercase;">Motivo</strong><p style="font-size:13px;margin-top:2px;">${escapeHtmlLocal(h.motivoconsulta)}</p></div>
+              <div style="margin-bottom:8px;"><strong style="font-size:12px;color:var(--texto-terciario);text-transform:uppercase;">Diagnóstico</strong><p style="font-size:13px;margin-top:2px;">${escapeHtmlLocal(h.diagnostico)}</p></div>
+              <div><strong style="font-size:12px;color:var(--texto-terciario);text-transform:uppercase;">Tratamiento</strong><p style="font-size:13px;margin-top:2px;">${escapeHtmlLocal(h.tratamiento)}</p></div>
+            </div>
+          </div>
+        `
+      }).join('')
+    }).catch(() => {
+      document.getElementById('lista-historial').innerHTML = `<div class="state-error">Error al cargar historial</div>`
+    })
+  }
 }
 
 function inicialesAten(nombreCompleto = '') {
@@ -385,86 +527,7 @@ function escapeHtmlLocal(s) {
   }[c]))
 }
 
-async function abrirSubirPdf(idatencion) {
-  // Obtener DNI del paciente desde la atención
-  let dni = ''
-  try {
-    const r = await api.get(`/api/atenciones/${idatencion}`)
-    dni = r.data?.dni ?? ''
-  } catch {
-    toastError('No se pudo obtener los datos del paciente.')
-    return
-  }
-  if (!dni) { toastError('No se encontró el DNI del paciente.'); return }
 
-  const html = `
-    <h2 class="modal-title">Cargar PDF</h2>
-    <form id="form-pdf-hoy" novalidate>
-      <div class="cont-control">
-        <label>Nombre del examen</label>
-        <input type="text" name="nombreexamen" required placeholder="Ej: Resultado de laboratorio" autocomplete="off" />
-      </div>
-      <div class="cont-control" style="margin-top:12px;">
-        <label>Archivo PDF</label>
-        <input type="file" name="mi-archivo" accept="application/pdf" required />
-      </div>
-      <div id="pdf-hoy-preview-wrap" style="margin-top:10px;display:none;">
-        <p style="font-size:.82rem;color:var(--gris-dark);" id="pdf-hoy-filename"></p>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:16px;">
-        <button type="submit" class="btn-primario">Subir PDF</button>
-        <button type="button" class="btn-secundario" id="btn-cancel-pdf-hoy">Cancelar</button>
-      </div>
-    </form>`
-
-  openModal(html)
-
-  const inputFile = document.querySelector('#form-pdf-hoy [name="mi-archivo"]')
-  inputFile.addEventListener('change', () => {
-    const file = inputFile.files[0]
-    const wrap = document.getElementById('pdf-hoy-preview-wrap')
-    const lbl  = document.getElementById('pdf-hoy-filename')
-    if (file) {
-      lbl.textContent = `Archivo seleccionado: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`
-      wrap.style.display = 'block'
-    } else {
-      wrap.style.display = 'none'
-    }
-  })
-
-  document.getElementById('btn-cancel-pdf-hoy').addEventListener('click', closeModal)
-
-  document.getElementById('form-pdf-hoy').addEventListener('submit', async (e) => {
-    e.preventDefault()
-    const btn = e.submitter || e.target.querySelector('button[type="submit"]')
-    const nombre = e.target.querySelector('[name="nombreexamen"]').value.trim()
-    if (!nombre) { toastError('Ingrese un nombre para el examen.'); return }
-
-    const file = inputFile.files[0]
-    if (!file || file.size === 0) { toastError('Seleccione un archivo PDF.'); return }
-
-    if (btn) btn.classList.add('btn-loading')
-    const fd = new FormData(e.target)
-    fd.append('idpaciente', dni)
-
-    try {
-      const csrf = document.querySelector('meta[name="csrf-token"]')?.content ?? ''
-      const res  = await fetch('/api/examenes/subir-pdf', {
-        method:  'POST',
-        headers: { 'X-CSRF-Token': csrf },
-        body:    fd,
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Error al subir el PDF.')
-      toastOk('PDF subido correctamente.')
-      closeModal()
-    } catch (err) {
-      toastError(err.message)
-    } finally {
-      if (btn) btn.classList.remove('btn-loading')
-    }
-  })
-}
 
 function abrirTicket(idcita) {
   const w = 800, h = 700

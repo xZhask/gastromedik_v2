@@ -363,40 +363,67 @@ export async function abrirFormCita(cita = null, fechaDefecto = null, onSaved = 
       <section class="cita-form-section">
         <h3 class="cita-form-section__title">Paciente</h3>
 
-        <div class="cont-group">
-          <div class="cont-control">
+        ${!isEdit ? `
+        <div class="cont-group" id="wrap-buscador" style="margin-bottom:12px;">
+          <div class="cont-control" style="grid-column: 1 / -1;">
+            <label>Buscar Paciente (DNI o Nombres)</label>
+            <div style="position:relative;">
+              <input type="text" id="input-buscar-pac" autocomplete="off" placeholder="Ej. 12345678 o Juan Perez..." />
+              <div id="dd-buscar-pac" class="gm-autocomplete" style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; background:var(--superficie); border:1px solid var(--borde-medio); border-radius:8px; max-height:240px; overflow-y:auto; z-index:100; box-shadow:0 10px 25px rgba(0,0,0,0.1);"></div>
+            </div>
+          </div>
+        </div>` : ''}
+
+        <div class="cont-group" id="wrap-datos-paciente" ${!isEdit ? 'style="display:none;"' : ''}>
+          ${isEdit ? `
+          <div class="cont-control" style="grid-column: 1 / -1;">
+            <label>Paciente Seleccionado</label>
+            <div style="background: var(--superficie-2); border: 1px solid var(--borde-sutil); border-radius: 8px; padding: 12px 16px; margin-top: 4px;">
+              <div style="font-weight: 600; color: var(--texto-primario); font-size: 15px; margin-bottom: 6px;">
+                ${cita?.apellidospaciente ?? ''}, ${cita?.nombrepaciente ?? ''}
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 16px; color: var(--texto-secundario); font-size: 13px;">
+                <span><strong style="color:var(--texto-primario); font-weight:600;">DNI:</strong> ${cita?.dni ?? ''}</span>
+                <span><strong style="color:var(--texto-primario); font-weight:600;">Edad:</strong> ${cita?.edad ?? '-'} años</span>
+                <span><strong style="color:var(--texto-primario); font-weight:600;">Teléfono:</strong> ${cita?.telefono ?? '-'}</span>
+              </div>
+            </div>
+            <input type="hidden" name="dni" value="${cita?.dni ?? ''}" />
+            <input type="hidden" name="nombre" value="${cita?.nombrepaciente ?? ''}" />
+            <input type="hidden" name="apellidos" value="${cita?.apellidospaciente ?? ''}" />
+          </div>
+          ` : `
+          <div class="cont-control" id="ctrl-dni-paciente">
             <label>DNI del Paciente</label>
-            ${isEdit
-              ? `<input type="text" name="dni" value="${cita?.dni ?? ''}" readonly required maxlength="8" />`
-              : `<div class="cont-busqueda">
-                   <input type="text" name="dni" value="" required maxlength="8" autocomplete="off" placeholder="Ingrese DNI" />
-                   <button type="button" id="btn-buscar-dni-cita" title="Buscar DNI">${icon('search')}</button>
-                 </div>`
-            }
+            <div class="cont-busqueda">
+               <input type="text" name="dni" value="" required maxlength="8" autocomplete="off" placeholder="Ingrese DNI" />
+               <button type="button" id="btn-buscar-dni-cita" title="Buscar DNI">${icon('search')}</button>
+             </div>
           </div>
           <div class="cont-control">
             <label>Nombre</label>
-            <input type="text" name="nombre" value="${cita?.nombrepaciente ?? ''}" ${isEdit ? '' : 'readonly'} />
+            <input type="text" name="nombre" value="" readonly />
           </div>
           <div class="cont-control">
             <label>Apellidos</label>
-            <input type="text" name="apellidos" value="${cita?.apellidospaciente ?? ''}" ${isEdit ? '' : 'readonly'} />
+            <input type="text" name="apellidos" value="" readonly />
           </div>
           <div class="cont-control">
             <label>Teléfono</label>
-            <input type="text" name="telefono" value="${cita?.telefono ?? ''}" ${isEdit ? '' : 'readonly'} />
+            <input type="text" name="telefono" value="" readonly />
           </div>
+          <div class="cont-control">
+            <label>Fecha de Nacimiento</label>
+            <input type="date" name="fecha_nac" value="" />
+          </div>
+          `}
         </div>
 
         ${!isEdit ? `
-        <div id="wrap-fecha-nac" hidden>
+        <div id="reniec-not-found-hint" hidden style="margin-bottom:12px;">
           <div class="cita-fecha-nac-hint">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             <span>Paciente no encontrado en RENIEC. Complete los datos manualmente.</span>
-          </div>
-          <div class="cont-control">
-            <label>Fecha de nacimiento</label>
-            <input type="date" name="fecha_nac" value="" />
           </div>
         </div>` : ''}
       </section>
@@ -442,13 +469,20 @@ export async function abrirFormCita(cita = null, fechaDefecto = null, onSaved = 
   if (!isEdit) {
     const inputDni  = document.querySelector('[name="dni"]')
     const btnBuscar = document.getElementById('btn-buscar-dni-cita')
+    const wrapDatos = document.getElementById('wrap-datos-paciente')
+    const inputBuscar = document.getElementById('input-buscar-pac')
+    const ddBuscar = document.getElementById('dd-buscar-pac')
+    const hintReniec = document.getElementById('reniec-not-found-hint')
 
-    const mostrarFechaNac = () => {
-      const wrap = document.getElementById('wrap-fecha-nac')
-      if (wrap && wrap.hidden) {
-        wrap.hidden = false
-        wrap.classList.add('field-reveal')
+    const mostrarHintReniec = () => {
+      if (hintReniec && hintReniec.hidden) {
+        hintReniec.hidden = false
+        hintReniec.classList.add('field-reveal')
       }
+    }
+
+    const ocultarHintReniec = () => {
+      if (hintReniec) hintReniec.hidden = true
     }
 
     const habilitarCampos = (...names) => {
@@ -458,9 +492,106 @@ export async function abrirFormCita(cita = null, fechaDefecto = null, onSaved = 
       })
     }
 
+    const setCampos = (dni, nombre, apell, tel, fnac = '') => {
+      inputDni.value = dni
+      document.querySelector('[name="nombre"]').value = nombre
+      document.querySelector('[name="apellidos"]').value = apell
+      document.querySelector('[name="telefono"]').value = tel
+      const elFnac = document.querySelector('[name="fecha_nac"]')
+      if (elFnac) elFnac.value = fnac
+    }
+
+    const setReadonly = (readonly) => {
+      ['nombre', 'apellidos', 'telefono', 'fecha_nac'].forEach(n => {
+        const el = document.querySelector(`[name="${n}"]`)
+        if (el) {
+          if (readonly) el.setAttribute('readonly', 'true')
+          else el.removeAttribute('readonly')
+        }
+      })
+      if (readonly) inputDni.setAttribute('readonly', 'true')
+      else inputDni.removeAttribute('readonly')
+      
+      if (btnBuscar) {
+        btnBuscar.style.display = readonly ? 'none' : ''
+      }
+    }
+
+    // ── Autocompletado ──
+    let timeoutId
+    inputBuscar?.addEventListener('input', (e) => {
+      clearTimeout(timeoutId)
+      const val = e.target.value.trim()
+      if (val.length < 2) {
+        ddBuscar.style.display = 'none'
+        return
+      }
+      timeoutId = setTimeout(async () => {
+        try {
+          const res = await api.get('/api/pacientes', { q: val })
+          const pacientes = Array.isArray(res.data) ? res.data : []
+          
+          let html = pacientes.map(p => `
+            <div class="gm-autocomplete-item" data-dni="${p.dni}" data-nombre="${escapeHtml(p.nombre)}" data-apellidos="${escapeHtml(p.apellidos)}" data-tel="${escapeHtml(p.telefono)}" data-fnac="${p.fecha_nac ?? ''}">
+              <div style="font-weight:600; color:var(--texto-primario); font-size:14px;">${escapeHtml(p.apellidos)}, ${escapeHtml(p.nombre)}</div>
+              <div style="font-size:12px; color:var(--texto-terciario); font-variant-numeric:tabular-nums;">DNI: ${p.dni}</div>
+            </div>
+          `).join('')
+          
+          if (pacientes.length === 0) {
+            html = `<div style="padding:12px 16px; font-size:13px; color:var(--texto-terciario); text-align:center;">No se encontraron coincidencias.</div>`
+          }
+          
+          html += `
+            <div class="gm-autocomplete-action" id="btn-registrar-nuevo-pac" style="padding:12px 16px; border-top:1px solid var(--borde-sutil); cursor:pointer; color:var(--azul); font-weight:600; text-align:center; transition:background 0.2s;">
+              + Registrar nuevo paciente
+            </div>
+          `
+          ddBuscar.innerHTML = html
+          ddBuscar.style.display = 'block'
+          
+          // Eventos de selección
+          ddBuscar.querySelectorAll('.gm-autocomplete-item').forEach(item => {
+            item.addEventListener('click', () => {
+              setCampos(item.dataset.dni, item.dataset.nombre, item.dataset.apellidos, item.dataset.tel, item.dataset.fnac)
+              setReadonly(true)
+              ocultarHintReniec()
+              wrapDatos.style.display = ''
+              ddBuscar.style.display = 'none'
+              inputBuscar.value = item.dataset.dni + ' - ' + item.dataset.nombre
+            })
+          })
+          
+          document.getElementById('btn-registrar-nuevo-pac').addEventListener('click', () => {
+            setCampos('', '', '', '', '')
+            setReadonly(false)
+            ocultarHintReniec()
+            inputDni.value = val.replace(/\D/g, '').slice(0, 8) // intentar poner lo que escribió si son números
+            wrapDatos.style.display = ''
+            ddBuscar.style.display = 'none'
+            inputBuscar.value = ''
+            inputDni.focus()
+          })
+          
+        } catch (e) {
+          ddBuscar.style.display = 'none'
+        }
+      }, 300)
+    })
+    
+    // Cerrar dropdown al hacer click fuera
+    document.addEventListener('click', (e) => {
+      if (ddBuscar && !ddBuscar.contains(e.target) && e.target !== inputBuscar) {
+        ddBuscar.style.display = 'none'
+      }
+    })
+
+    // ── Original RENIEC / DB fallback ──
     const buscarDni = async () => {
       const dni = inputDni.value.trim()
       if (dni.length !== 8) return
+
+      ocultarHintReniec()
 
       // 1. Buscar en BD local → paciente ya registrado
       try {
@@ -470,6 +601,8 @@ export async function abrirFormCita(cita = null, fechaDefecto = null, onSaved = 
           document.querySelector('[name="nombre"]').value    = data.nombre    ?? ''
           document.querySelector('[name="apellidos"]').value = data.apellidos ?? ''
           document.querySelector('[name="telefono"]').value  = data.telefono  ?? ''
+          const elFnac = document.querySelector('[name="fecha_nac"]')
+          if (elFnac) elFnac.value = data.fecha_nac ?? ''
           return
         }
       } catch { /* 404 → intentar API externa */ }
@@ -481,18 +614,17 @@ export async function abrirFormCita(cita = null, fechaDefecto = null, onSaved = 
         if (d.nombres) {
           document.querySelector('[name="nombre"]').value    = d.nombres ?? ''
           document.querySelector('[name="apellidos"]').value = `${d.apellido_paterno ?? ''} ${d.apellido_materno ?? ''}`.trim()
-          habilitarCampos('telefono')
-          mostrarFechaNac()
+          habilitarCampos('telefono', 'fecha_nac')
           return
         }
       } catch { /* no encontrado en RENIEC */ }
 
       // 3. No encontrado en ninguna fuente → menor de edad, habilitar todo
-      habilitarCampos('nombre', 'apellidos', 'telefono')
-      mostrarFechaNac()
+      habilitarCampos('nombre', 'apellidos', 'telefono', 'fecha_nac')
+      mostrarHintReniec()
     }
 
-    btnBuscar.addEventListener('click', buscarDni)
+    if (btnBuscar) btnBuscar.addEventListener('click', buscarDni)
     inputDni.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); buscarDni() } })
   }
 

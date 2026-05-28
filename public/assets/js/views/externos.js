@@ -35,12 +35,12 @@ export async function ExternosView() {
         </div>
       </div>
       <div class="citas-header__filters" style="width: 100%; padding-top: 14px; border-top: 1px solid var(--borde-sutil); margin-top: 6px;">
-        <div class="toolbar" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-          <div class="cont-control" style="margin:0;display:flex;align-items:center;gap:8px;">
+        <div class="toolbar" style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;">
+          <div class="cont-control" style="margin:0;">
             <label style="margin:0; font-weight: 500;">De</label>
             <input type="date" id="ext-desde" value="${primeroMes}" class="form-control" style="width: 130px; height: 36px; padding: 0 10px;" />
           </div>
-          <div class="cont-control" style="margin:0;display:flex;align-items:center;gap:8px;">
+          <div class="cont-control" style="margin:0;">
             <label style="margin:0; font-weight: 500;">a</label>
             <input type="date" id="ext-hasta" value="${hoy}" class="form-control" style="width: 130px; height: 36px; padding: 0 10px;" />
           </div>
@@ -86,6 +86,14 @@ async function cargar() {
   }
   try {
     const { data } = await api.get('/api/citas/externas', params)
+    
+    // Order list descending by date
+    data.sort((a, b) => {
+      const dtA = (a.fecha || '') + ' ' + (a.hora || '');
+      const dtB = (b.fecha || '') + ' ' + (b.hora || '');
+      return dtB.localeCompare(dtA);
+    });
+
     const total = data.filter(r => r.estado !== 'ANULADO').reduce((s, r) => s + parseFloat(r.precio ?? 0), 0)
     document.getElementById('ext-sub').textContent = `${params.fecha1} - ${params.fecha2}`
     

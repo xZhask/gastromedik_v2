@@ -18,6 +18,7 @@ import { confirm }                   from '../components/confirm.js'
 import { renderTable, wrapTable }    from '../components/table.js'
 import { pageHeader }                from '../components/pageHeader.js'
 import { skeletonTable }             from '../components/skeleton.js'
+import { abrirAdjuntos }             from '../components/adjuntosModal.js'
 
 const content = () => document.getElementById('app-content')
 const CARGO   = parseInt(document.querySelector('meta[name="user-cargo"]')?.content ?? '0')
@@ -153,8 +154,7 @@ function buildColumns() {
         return `
         <div class="pac-actions">
           ${[1,2,4].includes(CARGO) ? iconBtn('history','historial','Ver historial','icon-info') : ''}
-          ${iconBtn('image','imagenes','Ver imágenes','icon-muted')}
-          ${iconBtn('pdf','pdfs','Ver PDFs','icon-muted')}
+          ${[1,2,4].includes(CARGO) ? iconBtn('paperclip','adjuntos','Adjuntar archivos','icon-ocre') : ''}
           ${[1,4].includes(CARGO) ? iconBtn('edit','editar','Editar','icon-muted') : ''}
           ${[1,4].includes(CARGO) ? iconBtn('trash','eliminar','Eliminar','icon-danger') : ''}
         </div>`
@@ -211,8 +211,12 @@ function bindEventos() {
         case 'editar':    await editarPaciente(dni); break
         case 'eliminar':  await eliminarPaciente(dni, tr); break
         case 'historial': await abrirHistorial(dni); break
-        case 'imagenes':  await abrirSubirImagenes(dni); break
-        case 'pdfs':      await abrirSubirPdf(dni); break
+        case 'adjuntos': {
+          let pacName = tr.querySelector('.pac-cell__name')?.textContent || '';
+          pacName = pacName.replace(/Registro incompleto.*/, '').trim();
+          await abrirAdjuntos(dni, pacName, { onDone: cargarPacientes });
+          break;
+        }
       }
     } catch (err) { toastError(err.message) }
   })
@@ -546,150 +550,4 @@ function renderConsultaSOAP(a) {
     </div>`
 }
 
-// ── Imágenes ──────────────────────────────────────────────────────────────────
 
-async function abrirSubirImagenes(dni) {
-  const slots = Array.from({ length: 6 }, (_, i) => `
-    <label class="img-slot" data-slot="${i + 1}" title="Imagen ${i + 1}">
-      <input type="file" name="foto${i + 1}" accept="image/png,image/jpeg" style="display:none;" />
-      <img class="img-preview" style="display:none;" alt="" />
-      <span class="img-slot-label">+ Img ${i + 1}</span>
-    </label>`).join('')
-
-  const html = `
-    <h2 class="modal-title">Cargar Imágenes</h2>
-    <form id="form-imgs" novalidate>
-      <div class="cont-control" style="margin-bottom:14px;">
-        <label>Nombre del examen</label>
-        <input type="text" name="nombreexamen" required placeholder="Ej: Radiografía de tórax" autocomplete="off" />
-      </div>
-      <div class="img-slots-grid">${slots}</div>
-      <div style="display:flex;gap:8px;margin-top:16px;">
-        <button type="submit" class="btn-primario">Subir imágenes</button>
-        <button type="button" class="btn-secundario" id="btn-cancel-imgs">Cancelar</button>
-      </div>
-    </form>`
-
-  openModal(html, { wide: true })
-
-  // Vista previa al seleccionar archivo
-  document.querySelectorAll('.img-slot input[type=file]').forEach(input => {
-    input.addEventListener('change', () => {
-      const file = input.files[0]
-      if (!file) return
-      const slot    = input.closest('.img-slot')
-      const preview = slot.querySelector('.img-preview')
-      const label   = slot.querySelector('.img-slot-label')
-      const reader  = new FileReader()
-      reader.onloadend = () => {
-        preview.src           = reader.result
-        preview.style.display = 'block'
-        label.style.display   = 'none'
-        slot.classList.add('img-slot--filled')
-      }
-      reader.readAsDataURL(file)
-    })
-  })
-
-  document.getElementById('btn-cancel-imgs').addEventListener('click', closeModal)
-
-  document.getElementById('form-imgs').addEventListener('submit', async (e) => {
-    e.preventDefault()
-    const nombre = e.target.querySelector('[name="nombreexamen"]').value.trim()
-    if (!nombre) { toastError('Ingrese un nombre para el examen.'); return }
-
-    const fd = new FormData(e.target)
-    fd.append('idpaciente', dni)
-
-    let hasImage = false
-    for (let i = 1; i <= 6; i++) {
-      const f = fd.get('foto' + i)
-      if (f && f.size > 0) { hasImage = true; break }
-    }
-    if (!hasImage) { toastError('Seleccione al menos una imagen.'); return }
-
-    try {
-      const csrf = document.querySelector('meta[name="csrf-token"]')?.content ?? ''
-      const res  = await fetch('/api/examenes/subir-imagenes', {
-        method:  'POST',
-        headers: { 'X-CSRF-Token': csrf },
-        body:    fd,
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Error al subir imagenes.')
-      const guardados = json.data?.guardados ?? json.guardados ?? 0
-      toastOk(`${guardados} imagen${guardados !== 1 ? 'es' : ''} guardada${guardados !== 1 ? 's' : ''}.`)
-      closeModal()
-    } catch (err) {
-      toastError(err.message)
-    }
-  })
-}
-
-// ── PDFs ──────────────────────────────────────────────────────────────────────
-
-async function abrirSubirPdf(dni) {
-  const html = `
-    <h2 class="modal-title">Cargar PDF</h2>
-    <form id="form-pdf" novalidate>
-      <div class="cont-control">
-        <label>Nombre del examen</label>
-        <input type="text" name="nombreexamen" required placeholder="Ej: Resultado de laboratorio" autocomplete="off" />
-      </div>
-      <div class="cont-control" style="margin-top:12px;">
-        <label>Archivo PDF</label>
-        <input type="file" name="mi-archivo" accept="application/pdf" required />
-      </div>
-      <div id="pdf-preview-wrap" style="margin-top:10px;display:none;">
-        <p style="font-size:.82rem;color:var(--gris-dark);" id="pdf-filename"></p>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:16px;">
-        <button type="submit" class="btn-primario">Subir PDF</button>
-        <button type="button" class="btn-secundario" id="btn-cancel-pdf">Cancelar</button>
-      </div>
-    </form>`
-
-  openModal(html)
-
-  const inputFile = document.querySelector('#form-pdf [name="mi-archivo"]')
-  inputFile.addEventListener('change', () => {
-    const file = inputFile.files[0]
-    const wrap = document.getElementById('pdf-preview-wrap')
-    const lbl  = document.getElementById('pdf-filename')
-    if (file) {
-      lbl.textContent = `Archivo seleccionado: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`
-      wrap.style.display = 'block'
-    } else {
-      wrap.style.display = 'none'
-    }
-  })
-
-  document.getElementById('btn-cancel-pdf').addEventListener('click', closeModal)
-
-  document.getElementById('form-pdf').addEventListener('submit', async (e) => {
-    e.preventDefault()
-    const nombre = e.target.querySelector('[name="nombreexamen"]').value.trim()
-    if (!nombre) { toastError('Ingrese un nombre para el examen.'); return }
-
-    const file = inputFile.files[0]
-    if (!file || file.size === 0) { toastError('Seleccione un archivo PDF.'); return }
-
-    const fd = new FormData(e.target)
-    fd.append('idpaciente', dni)
-
-    try {
-      const csrf = document.querySelector('meta[name="csrf-token"]')?.content ?? ''
-      const res  = await fetch('/api/examenes/subir-pdf', {
-        method:  'POST',
-        headers: { 'X-CSRF-Token': csrf },
-        body:    fd,
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Error al subir imagenes.')
-      toastOk('PDF subido correctamente.')
-      closeModal()
-    } catch (err) {
-      toastError(err.message)
-    }
-  })
-}

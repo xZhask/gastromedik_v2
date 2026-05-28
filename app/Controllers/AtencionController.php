@@ -49,6 +49,10 @@ class AtencionController extends BaseController
     /** POST /api/atenciones/guardar */
     public function store(Request $request): void
     {
+        if (!\App\Core\Auth::hasRole([1, 2])) {
+            $this->json([], false, 'No autorizado para registrar atención', 403);
+            return;
+        }
         $this->service->guardarAtencion($request->json());
         $this->json(['message' => 'Atencion guardada correctamente']);
     }

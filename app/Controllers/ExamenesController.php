@@ -32,6 +32,11 @@ class ExamenesController extends BaseController
 
     public function storeImgs(Request $request): void
     {
+        if (!\App\Core\Auth::hasRole([1, 2, 4])) {
+            $this->json([], false, 'No autorizado para subir imágenes', 403);
+            return;
+        }
+
         $result = $this->examenes->registrarImagenes(
             (string) $request->post('idpaciente', ''),
             (string) $request->post('nombreexamen', ''),
@@ -46,6 +51,11 @@ class ExamenesController extends BaseController
 
     public function storePdf(Request $request): void
     {
+        if (!\App\Core\Auth::hasRole([1, 2, 4])) {
+            $this->json([], false, 'No autorizado para subir PDF', 403);
+            return;
+        }
+
         $this->examenes->registrarPdf(
             (string) $request->post('idpaciente', ''),
             (string) $request->post('nombreexamen', ''),

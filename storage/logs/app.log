@@ -9,3 +9,5 @@
 [2026-05-25 14:17:37] INFO: Cita actualizada {"idcita":19661,"dni":"16456828"}
 [2026-05-25 18:40:33] INFO: Cita registrada {"idcita":19663,"dni":"77332033"}
 [2026-05-25 23:19:00] INFO: Atencion guardada {"idatencion":19765,"dni":"77332033"}
+[2026-05-27 22:35:09] INFO: Cita registrada {"idcita":19664,"dni":"77332033"}
+[2026-05-28 01:31:39] INFO: Cita actualizada {"idcita":19664,"dni":"77332033"}
