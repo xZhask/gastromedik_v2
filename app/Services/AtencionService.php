@@ -8,6 +8,7 @@ use App\Core\ValidationException;
 use App\Core\Validator;
 use App\Models\AtencionModel;
 use App\Models\AntecedentesModel;
+use App\Models\DiagnosticoAtencionModel;
 use RuntimeException;
 use Throwable;
 
@@ -16,12 +17,14 @@ class AtencionService
     private Database $db;
     private AtencionModel $atencion;
     private AntecedentesModel $antecedentes;
+    private DiagnosticoAtencionModel $diagnosticoAtencion;
 
     public function __construct()
     {
         $this->db = Database::getInstance();
         $this->atencion = new AtencionModel();
         $this->antecedentes = new AntecedentesModel();
+        $this->diagnosticoAtencion = new DiagnosticoAtencionModel();
     }
 
     public function listarPorFecha(string $fecha): array
@@ -42,6 +45,9 @@ class AtencionService
         if ($atencion === null) {
             throw new RuntimeException('Atencion no encontrada', 404);
         }
+        
+        $atencion['diagnosticos'] = $this->diagnosticoAtencion->listarPorAtencion($id);
+        
         return $atencion;
     }
 
@@ -115,6 +121,31 @@ class AtencionService
                 'cirugias'    => trim($body['cirugias'] ?? '-'),
                 'endoscopias' => trim($body['endoscopias'] ?? '-'),
                 'covid'       => $body['covid'] ?? 'NO',
+            ]);
+
+            $diagnosticos = $body['diagnosticos'] ?? [];
+
+            // Regla: exactamente un PRINCIPAL. Si no viene ninguno marcado, el primero es PRINCIPAL.
+            $tienePrincipal = false;
+            foreach ($diagnosticos as $d) {
+                if (($d['jerarquia'] ?? '') === 'PRINCIPAL') { $tienePrincipal = true; break; }
+            }
+            if (!$tienePrincipal && count($diagnosticos) > 0) {
+                $diagnosticos[0]['jerarquia'] = 'PRINCIPAL';
+            }
+
+            // Reemplazo idempotente
+            $this->diagnosticoAtencion->eliminarPorAtencion($idAtencion);
+            $resumen = [];
+            foreach ($diagnosticos as $d) {
+                if (empty($d['codigo'])) continue;
+                $this->diagnosticoAtencion->registrar($idAtencion, $d);
+                $resumen[] = $d['codigo'] . ' ' . ($d['descripcion'] ?? '');
+            }
+
+            // Compatibilidad: mantener atencion.diagnostico como texto-resumen (historial/PDF lo leen)
+            $this->atencion->actualizar($idAtencion, [
+                'diagnostico' => $resumen ? implode('; ', $resumen) : '-',
             ]);
 
             $this->db->commit();

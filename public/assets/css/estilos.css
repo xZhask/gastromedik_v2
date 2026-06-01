@@ -1082,8 +1082,8 @@ fieldset.mgt5 { margin-top: 5px; }
   align-items: center;
 }
 .pac-actions .icon-btn {
-  width: 30px;
-  height: 30px;
+  width: 50px;
+  height: 50px;
 }
 
 /* Avatar grande para forms y headers de modal */
@@ -1756,7 +1756,7 @@ fieldset.mgt5 { margin-top: 5px; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
   padding: 8px 14px;
   background: var(--azul-light);
@@ -1768,13 +1768,34 @@ fieldset.mgt5 { margin-top: 5px; }
   font-weight: 700;
   color: var(--azul-dark);
   margin: 0;
+  flex-shrink: 0;
 }
 .soap-edit-card__hint {
   font-size: .74rem;
+  font-style: italic;
+  font-weight: 400;
   color: var(--azul-dark);
-  opacity: .7;
+  opacity: .65;
+  text-align: right;
+  flex-shrink: 1;
+  min-width: 0;
+}
+@media (max-width: 560px) {
+  .soap-edit-card__hint { text-align: left; }
 }
 
+.soap-edit-card textarea {
+  border: none;
+  padding: 10px 14px;
+  width: 100%;
+  background: var(--superficie);
+  resize: vertical;
+  min-height: 70px;
+  font-family: inherit;
+  font-size: .9rem;
+  color: var(--texto-primario);
+  outline: none;
+}
 .soap-edit-card textarea:focus { box-shadow: none !important; }
 
 /* Chips de antecedentes */
@@ -1818,54 +1839,129 @@ fieldset.mgt5 { margin-top: 5px; }
   color: var(--rojo-dark);
 }
 .ant-chip--on .ant-chip__icon { background: var(--rojo); color: var(--blanco); }
+/* Buscador CIE-10 (Diagnósticos) */
+.dx-wrap { position: relative; padding: 14px; }
+.dx-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1.5px solid var(--borde-sutil);
+  border-radius: var(--radius);
+  background: var(--superficie);
+  height: 38px;
+  transition: var(--transition);
+  overflow: hidden;
+}
+.dx-search:focus-within { border-color: var(--azul); }
+.dx-search__input {
+  flex: 1;
+  border: none !important;
+  outline: none !important;
+  background: transparent;
+  font-size: .9rem;
+  color: var(--texto-primario);
+}
+.dx-search__input:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
 
-/* Cards de SOAP editable */
-.soap-edit-card {
+#soap-diagnostico {
+  overflow: visible !important;
+}
+#soap-diagnostico .soap-edit-card__head {
+  border-top-left-radius: calc(var(--radius) - 1px);
+  border-top-right-radius: calc(var(--radius) - 1px);
+}
+#soap-diagnostico:focus-within {
+  border-color: var(--borde-sutil) !important;
+  box-shadow: none !important;
+}
+
+.dx-results {
+  position: absolute;
+  top: 60px;
+  left: 14px;
+  right: 14px;
+  z-index: 100;
+  max-height: 240px;
+  overflow-y: auto;
   background: var(--superficie);
   border: 1px solid var(--borde-sutil);
   border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-bottom: 12px;
-  scroll-margin-top: 80px;
+  box-shadow: var(--shadow-md);
+}
+.dx-result-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--borde-sutil);
+  cursor: pointer;
   transition: var(--transition);
 }
-.soap-edit-card:focus-within {
-  border-color: var(--azul);
-  box-shadow: 0 0 0 3px rgba(56,103,214,.08);
+.dx-result-item:last-child { border-bottom: none; }
+.dx-result-item:hover { background: var(--superficie-3); }
+.dx-badge-code {
+  font-family: monospace;
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--azul-dark);
+  background: var(--azul-light);
+  padding: 3px 8px;
+  border-radius: 4px;
+  min-width: 50px;
+  text-align: center;
 }
-.soap-edit-card__head {
+.dx-list {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.dx-item {
+  display: flex;
+  align-items: center;
   gap: 10px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--borde-sutil);
+  border-radius: var(--radius);
+  background: var(--superficie-2);
 }
-.soap-edit-card__head h4 {
-  font-size: .9rem;
-  font-weight: 700;
+.dx-item-desc {
+  flex: 1;
+  font-size: .85rem;
   color: var(--texto-primario);
-  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.soap-edit-card__hint {
-  font-size: .74rem;
-  color: var(--texto-terciario);
-  font-style: italic;
+.dx-seg {
+  display: inline-flex;
+  border: 1px solid var(--borde-sutil);
+  border-radius: 99px;
+  padding: 2px;
+  background: var(--superficie-3);
+  gap: 2px;
 }
-.soap-edit-card textarea {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 70px;
-  border: none !important;
-  background: var(--superficie) !important;
-  padding: 10px 14px !important;
-  font-size: .9rem;
-  font-family: inherit;
-  resize: vertical;
-  color: var(--texto-primario);
-  outline: none;
+.dx-seg button {
+  border: none;
+  background: transparent;
+  padding: 3px 9px;
+  font-size: .7rem;
+  font-weight: 500;
+  border-radius: 99px;
+  color: var(--texto-secundario);
+  cursor: pointer;
+  transition: var(--transition);
 }
-.soap-edit-card textarea:focus { box-shadow: none !important; }
+.dx-seg button.active-ambar { background: #BA7517; color: #fff; }
+.dx-seg button.active-verde { background: #0F6E56; color: #fff; }
+
 
 /* ── Caja ───────────────────────────────────────────────────────────────────── */
 .caja-grid {
@@ -2354,19 +2450,38 @@ fieldset.mgt5 { margin-top: 5px; }
 
 /* Nuevos estilos para el Modal de Atención (Registro) */
 .badge-curso {
-  background: var(--azul-light);
-  color: var(--azul);
-  border: 1px solid var(--azul-mid);
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: .75rem;
-  font-weight: 600;
+  background: #FFF4E0;
+  color: #A66200;
+  border: 1px solid #F5C67A;
+  border-radius: 99px;
+  padding: 3px 10px;
+  font-size: .72rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: .2px;
+  line-height: 1.4;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-left: 10px;
 }
 .badge-curso i { font-size: 1rem; }
+
+.badge-motivo {
+  background: var(--azul-light);
+  color: var(--azul);
+  border: 1px solid var(--azul-mid);
+  border-radius: 99px;
+  padding: 3px 10px;
+  font-size: .72rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: .2px;
+  line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.badge-motivo i { font-size: 1rem; }
 
 .signos-disp-grid {
   display: grid;
@@ -2426,8 +2541,8 @@ fieldset.mgt5 { margin-top: 5px; }
 }
 
 .signo-disp-card__short {
-  background: var(--azul);
-  color: #fff;
+  background: var(--azul-light);
+  color: var(--azul-dark);
   width: 46px;
   height: 100%;
   display: flex;

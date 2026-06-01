@@ -81,9 +81,11 @@ class AtencionModel extends BaseModel
                        a.idpaciente AS dni,
                        CONCAT(p.nombre, ' ', p.apellidos) AS paciente,
                        TIMESTAMPDIFF(YEAR, p.fecha_nac, CURDATE()) AS edad,
+                       ta.nombre AS tipo_consulta,
                        sv.fr, sv.pa, sv.temp, sv.so2, sv.peso
                 FROM atencion a
                 INNER JOIN paciente p ON a.idpaciente = p.dni
+                LEFT JOIN tipo_atencion ta ON a.idtipoatencion = ta.idtipoatencion
                 LEFT JOIN signosvitales sv ON a.idatencion = sv.idatencion
                 WHERE a.idatencion = :id";
 

@@ -14,3 +14,4 @@
 [2026-05-28 13:35:14] INFO: Cita registrada {"idcita":19654,"dni":"77332033"}
 [2026-05-28 13:53:05] INFO: PDF de examen guardado {"dni":"77332033","nombre":"escudo_dirsapol"}
 [2026-05-28 13:53:05] INFO: Imagenes de examen guardadas {"dni":"77332033","nombre":"Rx torax","guardados":1}
+[2026-05-29 01:07:36] INFO: Cita actualizada {"idcita":19664,"dni":"77332033"}

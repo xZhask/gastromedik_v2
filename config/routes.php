@@ -3,6 +3,7 @@
 use App\Controllers\AtencionController;
 use App\Controllers\AuthController;
 use App\Controllers\CajaController;
+use App\Controllers\Cie10Controller;
 use App\Controllers\CitaController;
 use App\Controllers\DashboardController;
 use App\Controllers\EstablecimientoController;
@@ -87,6 +88,9 @@ $router->get   ('/api/atenciones/{id}',             [AtencionController::class, 
 $router->get   ('/api/atenciones/{id}/signos',      [AtencionController::class, 'signosVitales'])->middleware($auth);
 $router->post  ('/api/atenciones/guardar',          [AtencionController::class, 'store'])->middleware($csrf);
 $router->post  ('/api/atenciones/signos',           [AtencionController::class, 'registrarSignos'])->middleware($csrf);
+
+// Diagnósticos CIE-10
+$router->get   ('/api/cie10/buscar',                [Cie10Controller::class, 'buscar'])->middleware($auth);
 
 // Procedimientos
 $router->get   ('/api/procedimientos',        [ProcedimientoController::class, 'index'])->middleware($auth);

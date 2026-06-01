@@ -140,7 +140,7 @@ async function cargarHoy() {
         {
           label: 'Signos',
           align: 'center',
-          render: () => iconBtn('heartbeat', 'signos', 'Registrar signos vitales', 'icon-verde'),
+          render: () => iconBtn('corazon_sv', 'signos', 'Registrar signos vitales', 'icon-verde'),
         },
         {
           label: 'Acciones', align: 'center',
@@ -153,7 +153,7 @@ async function cargarHoy() {
               mainAction.push(iconBtn('pdf', 'archivo', 'Adjuntar archivo', 'icon-ocre'));
             }
             if ([1,2].includes(CARGO)) {
-              mainAction.push(iconBtn('calendar', 'atender', 'Registrar atención', 'icon-azul'));
+              mainAction.push(iconBtn('medical_history', 'atender', 'Registrar atención', 'icon-azul'));
             }
             return `<div class="pac-actions acciones-atencion" style="justify-content:center;display:flex;gap:6px;">${ticketBtn}${mainAction.join('')}</div>`;
           }
@@ -253,11 +253,32 @@ async function abrirAtencion(idatencion) {
     const len = val.length
     return `
       <div class="soap-edit-card" id="soap-${name}">
-        <div class="soap-edit-card__head" style="display:flex; justify-content:space-between; align-items:center; background:var(--azul-light); padding:8px 12px; margin-bottom:0; border-bottom:1px solid var(--borde-sutil);">
-          <h4 style="margin:0; font-size:.85rem; color:var(--texto-primario);">${title}</h4>
-          <span class="soap-edit-card__counter" style="font-size:.75rem; color:var(--texto-terciario);">${len}/1500</span>
+        <div class="soap-edit-card__head">
+          <h4>${title}</h4>
+          <div style="display:flex; align-items:center; gap:8px; text-align:right;">
+            <span class="soap-edit-card__hint">${hint}</span>
+            <span class="soap-edit-card__counter" style="font-size:.75rem; color:var(--texto-terciario); ${len >= 1200 ? '' : 'display:none;'}">${len}/1500</span>
+          </div>
         </div>
-        <textarea name="${name}" rows="${rows}" placeholder="${hint}" maxlength="1500" oninput="this.parentElement.querySelector('.soap-edit-card__counter').textContent = this.value.length + '/1500'" style="border-top:none; border-top-left-radius:0; border-top-right-radius:0;">${val}</textarea>
+        <textarea name="${name}" rows="${rows}" maxlength="1500" oninput="const c = this.parentElement.querySelector('.soap-edit-card__counter'); c.textContent = this.value.length + '/1500'; c.style.display = this.value.length >= 1200 ? 'inline' : 'none';">${val}</textarea>
+      </div>`
+  }
+
+  const diagnosticoBlock = () => {
+    return `
+      <div class="soap-edit-card" id="soap-diagnostico">
+        <div class="soap-edit-card__head">
+          <h4>Diagnóstico</h4>
+          <span class="soap-edit-card__hint">Buscar y clasificar códigos CIE10</span>
+        </div>
+        <div class="dx-wrap">
+          <div class="dx-search">
+            ${icon('search', 'dx-search__icon')}
+            <input type="text" id="dx-input" class="dx-search__input" placeholder="Buscar por código o descripción…" autocomplete="off">
+          </div>
+          <div id="dx-results" class="dx-results" hidden></div>
+          <div id="dx-list" class="dx-list"></div>
+        </div>
       </div>`
   }
 
@@ -270,7 +291,6 @@ async function abrirAtencion(idatencion) {
       const tieneValor = v && v !== '-'
       return `
         <div class="signo-disp-card">
-          <div class="signo-disp-card__label">${labels[k]}</div>
           <div class="signo-disp-card__box" style="padding:0; overflow:hidden;">
             <div class="signo-disp-card__short">${shorts[k]}</div>
             <span class="signo-disp-card__val" style="padding:0 8px;">${tieneValor ? escapeHtmlLocal(v) : ''}</span>
@@ -279,18 +299,23 @@ async function abrirAtencion(idatencion) {
         </div>`
     }).join('')
 
+  const toSentenceCase = (str) => {
+    if (!str) return ''
+    const lower = str.toLowerCase()
+    return lower.charAt(0).toUpperCase() + lower.slice(1)
+  }
+
   const html = `
     <div class="aten-modal">
       <header class="aten-modal__head">
         <div class="gm-avatar gm-avatar--lg">${inicialesAten(atencion?.paciente)}</div>
         <div class="aten-modal__ident">
           <h2 class="aten-modal__name">${escapeHtmlLocal(atencion?.paciente ?? '')}</h2>
-          <p class="aten-modal__meta">
+          <p class="aten-modal__meta" style="display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:4px;">
             <span>DNI: ${escapeHtmlLocal(atencion?.dni ?? '')}</span>
             <span class="aten-modal__dot"></span>
             <span>Edad: ${atencion?.edad ?? ''} años</span>
-            <span class="aten-modal__dot"></span>
-            <span>Cita: ${escapeHtmlLocal(atencion?.motivoconsulta ?? 'Control Post-Operatorio')}</span>
+            <span class="badge-motivo" style="margin-left:4px;"><i class="ph-fill ph-stethoscope"></i> ${escapeHtmlLocal(toSentenceCase(atencion?.tipo_consulta ?? atencion?.motivoconsulta ?? 'Consulta'))}</span>
             <span class="badge-curso"><i class="ph-fill ph-play-circle"></i> Atención en Curso</span>
           </p>
         </div>
@@ -315,9 +340,8 @@ async function abrirAtencion(idatencion) {
             <input type="hidden" name="typeAction" value="REGISTRAR" />
 
             <section class="aten-section" id="soap-signos">
-              <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px;">
+              <div style="margin-bottom:14px;">
                 <h3 class="aten-section__title" style="margin:0; border:none; padding:0; font-size:.9rem; text-transform:uppercase;">Signos Vitales Registrados</h3>
-                <span style="font-size:.75rem; color:var(--texto-terciario);">Última actualización: ${new Date().toLocaleTimeString('es-PE', {hour: '2-digit', minute:'2-digit'})}</span>
               </div>
               <div class="signos-disp-grid">${signosHtml}</div>
             </section>
@@ -326,7 +350,6 @@ async function abrirAtencion(idatencion) {
               <h3 class="aten-section__title" style="margin-bottom:12px; border:none; padding:0; font-size:.9rem; text-transform:uppercase;">Antecedentes</h3>
               
               <div style="margin-bottom:16px;">
-                <label style="display:block; font-size:.8rem; color:var(--texto-primario); margin-bottom:8px;">Enfermedades crónicas</label>
                 <div class="ant-chips" style="margin-bottom:0;">
                   ${chip('hta',   'HTA',       ant?.HTA)}
                   ${chip('dm',    'DM',        ant?.DM)}
@@ -339,32 +362,31 @@ async function abrirAtencion(idatencion) {
               <div class="ant-grid-3">
                 <div class="cont-control" style="margin:0;">
                   <label>Alergias Conocidas</label>
-                  <textarea name="alergias" rows="2" placeholder="Ej. Penicilina (Reacción urticaria)">${ant?.ALERGIAS && ant.ALERGIAS !== '-' ? ant.ALERGIAS : ''}</textarea>
+                  <textarea name="alergias" rows="2" placeholder="Penicilina, polen…">${ant?.ALERGIAS && ant.ALERGIAS !== '-' ? ant.ALERGIAS : ''}</textarea>
                 </div>
                 <div class="cont-control" style="margin:0;">
                   <label>Cirugías Previas</label>
-                  <textarea name="cirugias" rows="2" placeholder="Ej. Apendicectomía (2015)">${ant?.CIRUGIAS && ant.CIRUGIAS !== '-' ? ant.CIRUGIAS : ''}</textarea>
+                  <textarea name="cirugias" rows="2" placeholder="Apendicectomía…">${ant?.CIRUGIAS && ant.CIRUGIAS !== '-' ? ant.CIRUGIAS : ''}</textarea>
                 </div>
                 <div class="cont-control" style="margin:0;">
                   <label>Endoscopias Previas</label>
-                  <textarea name="endoscopias" rows="2" placeholder="Ej. Colonoscopia (2021)">${ant?.ENDOSCOPIAS && ant.ENDOSCOPIAS !== '-' ? ant.ENDOSCOPIAS : ''}</textarea>
+                  <textarea name="endoscopias" rows="2" placeholder="Colonoscopia…">${ant?.ENDOSCOPIAS && ant.ENDOSCOPIAS !== '-' ? ant.ENDOSCOPIAS : ''}</textarea>
                 </div>
               </div>
             </section>
 
             <section class="aten-section" style="margin-top:24px;">
               <h3 class="aten-section__title" style="margin-bottom:12px; border:none; padding:0; font-size:.9rem; text-transform:uppercase;">Consulta</h3>
-              <h4 style="font-size:.95rem; font-weight:700; color:var(--texto-primario); margin:0 0 14px;">Datos de la Consulta</h4>
               
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
-                ${soapCard('molestia',     'Molestia principal de consulta',  'Describe el síntoma o queja principal con detalles de intensidad...', atencion?.motivoconsulta, 3)}
-                ${soapCard('anamnesis',    'Anamnesis (Detalle del relato)',  'Registre el relato detallado y otros hallazgos relevantes...',        atencion?.anamensis,      3)}
+                ${soapCard('molestia',     'Molestia principal', 'Síntoma o queja que motivó la consulta', atencion?.motivoconsulta, 3)}
+                ${soapCard('antecedentes', 'HEA',                'Historia de la enfermedad actual',       atencion?.antecedente,    3)}
               </div>
               
-              ${soapCard('antecedentes', 'HEA (Historia de la Enfermedad Actual)', 'Detalla la evolución de los síntomas cronológicamente...',       atencion?.antecedente,    3)}
-              ${soapCard('examen_fisico','Examen físico',       'Hallazgos a la exploración',              atencion?.exfisico,       3)}
-              ${soapCard('diagnostico',  'Diagnóstico',         'Impresión diagnóstica',                   atencion?.diagnostico,    3)}
-              ${soapCard('tratamiento',  'Tratamiento',         'Plan terapéutico y recomendaciones',      atencion?.tratamiento,    3)}
+              ${soapCard('anamnesis',    'Anamnesis',           'Relato del paciente en sus palabras',    atencion?.anamensis,      4)}
+              ${soapCard('examen_fisico','Examen físico',       'Hallazgos a la exploración',             atencion?.exfisico,       4)}
+              ${diagnosticoBlock()}
+              ${soapCard('tratamiento',  'Tratamiento',         'Plan terapéutico y recomendaciones',     atencion?.tratamiento,    4)}
             </section>
           </form>
         </div>
@@ -413,6 +435,121 @@ async function abrirAtencion(idatencion) {
     })
   })
 
+  // --- Lógica CIE-10 ---
+  let dxState = (atencion?.diagnosticos ?? []).map(d => ({...d}))
+  const dxInput = document.getElementById('dx-input')
+  const dxResults = document.getElementById('dx-results')
+  const dxList = document.getElementById('dx-list')
+  let dxTimer
+
+  const hideResults = () => { dxResults.hidden = true; dxResults.innerHTML = '' }
+  
+  const renderList = () => {
+    if (!dxState.length) {
+      dxList.innerHTML = '<div style="padding:10px; font-size:.85rem; color:var(--texto-terciario); text-align:center;">No hay diagnósticos. Busque arriba para agregar uno.</div>'
+      return
+    }
+    dxList.innerHTML = dxState.map(d => `
+      <div class="dx-item">
+        <span class="dx-badge-code">${escapeHtmlLocal(d.codigo)}</span>
+        <span class="dx-item-desc" title="${escapeHtmlLocal(d.descripcion)}">${escapeHtmlLocal(d.descripcion)}</span>
+        <div class="dx-seg">
+          <button type="button" class="${d.jerarquia === 'PRINCIPAL' ? 'active-ambar' : ''}" data-action="set-jerarquia" data-codigo="${d.codigo}" data-val="PRINCIPAL">Principal</button>
+          <button type="button" class="${d.jerarquia === 'SECUNDARIO' ? 'active-ambar' : ''}" data-action="set-jerarquia" data-codigo="${d.codigo}" data-val="SECUNDARIO">Secundario</button>
+        </div>
+        <div class="dx-seg">
+          <button type="button" class="${d.tipo === 'DEFINITIVO' ? 'active-verde' : ''}" data-action="set-tipo" data-codigo="${d.codigo}" data-val="DEFINITIVO">Definitivo</button>
+          <button type="button" class="${d.tipo === 'PRESUNTIVO' ? 'active-verde' : ''}" data-action="set-tipo" data-codigo="${d.codigo}" data-val="PRESUNTIVO">Presuntivo</button>
+        </div>
+        <button type="button" class="btn-icon" data-action="remove-dx" data-codigo="${d.codigo}" style="color:var(--rojo);">${icon('trash')}</button>
+      </div>
+    `).join('')
+  }
+
+  const renderResults = (data) => {
+    if (!data.length) {
+      dxResults.innerHTML = '<div style="padding:10px; font-size:.85rem; color:var(--texto-terciario);">No se encontraron resultados.</div>'
+    } else {
+      dxResults.innerHTML = data.map(item => `
+        <div class="dx-result-item" data-codigo="${escapeHtmlLocal(item.codigo)}" data-desc="${escapeHtmlLocal(item.etiqueta || item.descripcion)}">
+          <span class="dx-badge-code">${escapeHtmlLocal(item.codigo)}</span>
+          <span style="flex:1; font-size:.85rem; color:var(--texto-primario);">${escapeHtmlLocal(item.etiqueta || item.descripcion)}</span>
+          <span style="color:var(--texto-terciario);">${icon('plus')}</span>
+        </div>
+      `).join('')
+    }
+    dxResults.hidden = false
+  }
+
+  dxInput.addEventListener('input', () => {
+    clearTimeout(dxTimer)
+    const q = dxInput.value.trim()
+    if (q.length < 2) { hideResults(); return }
+    dxTimer = setTimeout(async () => {
+      try {
+        const { data } = await api.get('/api/cie10/buscar', { q })
+        renderResults(data || [])
+      } catch (err) { console.error(err) }
+    }, 250)
+  })
+
+  // Cerrar dropdown al clickear fuera
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.dx-wrap')) hideResults()
+  })
+
+  dxResults.addEventListener('click', (e) => {
+    const itemEl = e.target.closest('.dx-result-item')
+    if (!itemEl) return
+    const codigo = itemEl.dataset.codigo
+    const descripcion = itemEl.dataset.desc
+    if (dxState.some(d => d.codigo === codigo)) return // evitar duplicados
+    
+    const esPrimero = dxState.length === 0
+    dxState.push({
+      codigo,
+      descripcion,
+      tipo: 'PRESUNTIVO',
+      jerarquia: esPrimero ? 'PRINCIPAL' : 'SECUNDARIO'
+    })
+    renderList()
+    hideResults()
+    dxInput.value = ''
+    dxInput.focus()
+  })
+
+  dxList.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-action]')
+    if (!btn) return
+    const action = btn.dataset.action
+    const codigo = btn.dataset.codigo
+    
+    if (action === 'remove-dx') {
+      dxState = dxState.filter(d => d.codigo !== codigo)
+      if (dxState.length > 0 && !dxState.some(d => d.jerarquia === 'PRINCIPAL')) {
+        dxState[0].jerarquia = 'PRINCIPAL'
+      }
+      renderList()
+    } else if (action === 'set-jerarquia') {
+      const val = btn.dataset.val
+      if (val === 'PRINCIPAL') {
+        dxState.forEach(d => d.jerarquia = (d.codigo === codigo) ? 'PRINCIPAL' : 'SECUNDARIO')
+      } else {
+        const d = dxState.find(x => x.codigo === codigo)
+        if (d) d.jerarquia = val
+      }
+      renderList()
+    } else if (action === 'set-tipo') {
+      const val = btn.dataset.val
+      const d = dxState.find(x => x.codigo === codigo)
+      if (d) d.tipo = val
+      renderList()
+    }
+  })
+
+  renderList()
+  // --- Fin Lógica CIE-10 ---
+
   document.getElementById('btn-close-aten')?.addEventListener('click', closeModal)
   document.getElementById('btn-cancel-aten').addEventListener('click', closeModal)
   document.getElementById('form-atencion').addEventListener('submit', async (e) => {
@@ -426,6 +563,8 @@ async function abrirAtencion(idatencion) {
     ;['hta','dm','hiv','hep','covid'].forEach(k => {
       body[k] = fd.get(k) === 'SI' ? 'SI' : 'NO'
     })
+    
+    body.diagnosticos = dxState;
 
     try {
       await api.post('/api/atenciones/guardar', body)

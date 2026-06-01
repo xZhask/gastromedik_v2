@@ -83,12 +83,19 @@ class ExamenesService
 
             $guardados = 0;
             foreach ($validFiles as $index => $file) {
-                $extension = $file['mime'] === 'image/png' ? 'png' : 'jpg';
-                $filename = time() . '_' . ($index + 1) . '.' . $extension;
+                $filename = time() . '_' . ($index + 1) . '.webp';
                 $destino = $dir . $filename;
-                if (!move_uploaded_file($file['tmp_name'], $destino)) {
-                    throw new RuntimeException('Error al guardar una de las imagenes', 500);
+                
+                if (!$this->compressToWebp($file['tmp_name'], $destino, $file['mime'], 80)) {
+                    // Fallback al archivo original si falla la conversión a WebP
+                    $extension = $file['mime'] === 'image/png' ? 'png' : 'jpg';
+                    $filename = time() . '_' . ($index + 1) . '.' . $extension;
+                    $destino = $dir . $filename;
+                    if (!move_uploaded_file($file['tmp_name'], $destino)) {
+                        throw new RuntimeException('Error al guardar una de las imagenes', 500);
+                    }
                 }
+                
                 $movidos[] = $destino;
                 $this->examenes->registrarDetalle([
                     'idexamen' => $idexamen,
@@ -237,6 +244,33 @@ class ExamenesService
         }
 
         return ['tmp_name' => $file['tmp_name'], 'mime' => $mime];
+    }
+
+    private function compressToWebp(string $source, string $destination, string $mime, int $quality = 80): bool
+    {
+        if (!is_uploaded_file($source) || !function_exists('imagewebp')) {
+            return false;
+        }
+
+        $image = null;
+        if ($mime === 'image/jpeg' || $mime === 'image/jpg') {
+            $image = @imagecreatefromjpeg($source);
+        } elseif ($mime === 'image/png') {
+            $image = @imagecreatefrompng($source);
+            if ($image) {
+                imagepalettetotruecolor($image);
+                imagealphablending($image, false);
+                imagesavealpha($image, true);
+            }
+        }
+        
+        if (!$image) {
+            return false;
+        }
+        
+        $result = imagewebp($image, $destination, $quality);
+        imagedestroy($image);
+        return $result;
     }
 
     private function resolveStoragePath(string $relative): ?string
