@@ -86,21 +86,23 @@ function init() {
   
   function applyTheme(theme) {
     if (theme === 'dark') {
-      document.body.dataset.theme = 'dark'
+      document.documentElement.dataset.theme = 'dark'
       if (iconMoon) iconMoon.style.display = 'none'
       if (iconSun) iconSun.style.display = 'block'
     } else {
-      delete document.body.dataset.theme
+      delete document.documentElement.dataset.theme
       if (iconMoon) iconMoon.style.display = 'block'
       if (iconSun) iconSun.style.display = 'none'
     }
   }
 
   const savedTheme = localStorage.getItem('gm-theme')
-  if (savedTheme) applyTheme(savedTheme)
+  const initialTheme = savedTheme
+    || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+  applyTheme(initialTheme)
 
   btnTheme?.addEventListener('click', () => {
-    const isDark = document.body.dataset.theme === 'dark'
+    const isDark = document.documentElement.dataset.theme === 'dark'
     const newTheme = isDark ? 'light' : 'dark'
     localStorage.setItem('gm-theme', newTheme)
     applyTheme(newTheme)

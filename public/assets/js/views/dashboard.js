@@ -84,8 +84,7 @@ export async function DashboardView() {
 
     // 3. Inicializar Gráficos (Chart.js debe estar cargado en shell.php)
     if (typeof Chart !== 'undefined') {
-      // Tomamos las variables del body donde se aplica el [data-theme="dark"]
-      const estiloBody = getComputedStyle(document.body);
+      const estiloBody = getComputedStyle(document.documentElement);
       const colorTexto = estiloBody.getPropertyValue('--gris-dark').trim() || '#888';
       const colorBorde = 'rgba(150, 150, 150, 0.1)'; // Líneas sutiles transparentes que funcionan en ambos temas
       

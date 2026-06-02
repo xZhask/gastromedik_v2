@@ -37,7 +37,7 @@ export async function CalendarioView() {
     return;
   }
 
-  const isDarkMode = document.body.getAttribute('data-theme') === 'dark';
+  const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
 
   const calendar = new CalendarApp('#calendar', {
     defaultView: 'month',
